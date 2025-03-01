@@ -6,6 +6,100 @@ namespace StoreListings.CLI;
 
 public class Commands
 {
+
+    public async Task Query([Argument] string query, CancellationToken cancellationToken, DeviceFamily deviceFamily = DeviceFamily.Desktop, Market market = Market.US, Lang language = Lang.en)
+    {
+        WriteLoadingProgressBar();
+        Result<StoreEdgeFDQuery> result = await StoreEdgeFDQuery.GetSearchProduct(query, deviceFamily, market, language, cancellationToken);
+        HideProgressBar();
+        if (result.IsSuccess)
+        {
+            List<Card> cards= result.Value.Cards;
+            foreach (var card in cards)
+            {
+                WriteField("ProductId", card.ProductId);
+                WriteField("Title", card.Title);
+                if (card.DisplayPrice != null) { WriteField("DisplayPrice", card.DisplayPrice); }
+                if (card.AverageRating != null) { WriteField("AverageRating", card.AverageRating.ToString()); }
+                WriteField("ImageUrl", card.Image.Url);
+            }
+        }
+        else
+        {
+            Console.WriteLine(result.Exception);
+        }
+    }
+
+    public async Task QueryBundles([Argument] string query, CancellationToken cancellationToken, DeviceFamily deviceFamily = DeviceFamily.Desktop, Market market = Market.US, Lang language = Lang.en)
+    {
+        WriteLoadingProgressBar();
+        Result<StoreEdgeFDQuery> result = await StoreEdgeFDQuery.GetBundles(query, deviceFamily, market, language, cancellationToken);
+        HideProgressBar();
+        if (result.IsSuccess)
+        {
+            List<Card> cards = result.Value.Cards;
+            foreach (var card in cards)
+            {
+                WriteField("ProductId", card.ProductId);
+                WriteField("Title", card.Title);
+                if (card.DisplayPrice != null) { WriteField("DisplayPrice", card.DisplayPrice); }
+                if (card.AverageRating != null) { WriteField("AverageRating", card.AverageRating.ToString()); }
+                WriteField("ImageUrl", card.Image.Url);
+            }
+        }
+        else
+        {
+            Console.WriteLine(result.Exception);
+        }
+    }
+
+    public async Task QueryRecommendation(CancellationToken cancellationToken, Categories categories = Categories.TopFree, DeviceFamily deviceFamily = DeviceFamily.Desktop, Market market = Market.US, Lang language = Lang.en)
+    {
+        WriteLoadingProgressBar();
+        Result<StoreEdgeFDQuery> result = await StoreEdgeFDQuery.GetRecommendations(categories, deviceFamily, market, language, cancellationToken);
+        HideProgressBar();
+        if (result.IsSuccess)
+        {
+            List<Card> cards = result.Value.Cards;
+            foreach (var card in cards)
+            {
+                WriteField("ProductId", card.ProductId);
+                WriteField("Title", card.Title);
+                if (card.DisplayPrice != null) { WriteField("DisplayPrice", card.DisplayPrice); }
+                if (card.AverageRating != null) { WriteField("AverageRating", card.AverageRating.ToString()); }
+                WriteField("ImageUrl", card.Image.Url);
+            }
+        }
+        else
+        {
+            Console.WriteLine(result.Exception.ToString());
+        }
+    }
+
+    public async Task QuerySuggestion([Argument] string query, CancellationToken cancellationToken, DeviceFamily deviceFamily = DeviceFamily.Desktop, Market market = Market.US, Lang language = Lang.en)
+    {
+        WriteLoadingProgressBar();
+        Result<StoreEdgeFDQuery> result = await StoreEdgeFDQuery.GetSearchProduct(query, deviceFamily, market, language, cancellationToken);
+        HideProgressBar();
+        if (result.IsSuccess)
+        {
+            List<Card> cards = result.Value.Cards;
+            foreach (var card in cards)
+            {
+                WriteField("ProductId", card.ProductId);
+                WriteField("Title", card.Title);
+                if (card.DisplayPrice != null) { WriteField("DisplayPrice", card.DisplayPrice); }
+                if (card.AverageRating != null) { WriteField("AverageRating", card.AverageRating.ToString()); }
+                WriteField("ImageUrl", card.Image.Url);
+            }
+        }
+        else
+        {
+            Console.WriteLine(result.Exception);
+        }
+    }
+
+
     /// <summary>
     /// Query a product ID on Microsoft Store.
     /// </summary>
@@ -13,7 +107,7 @@ public class Commands
     /// <param name="deviceFamily">-d, The device family.</param>
     /// <param name="market">-m, The store market/region to query from.</param>
     /// <param name="language">-l, The language, for listings that use localization.</param>
-    public async Task Query([Argument] string productId, CancellationToken cancellationToken, DeviceFamily deviceFamily = DeviceFamily.Desktop, Market market = Market.US, Lang language = Lang.en)
+    public async Task QueryProduct([Argument] string productId, CancellationToken cancellationToken, DeviceFamily deviceFamily = DeviceFamily.Desktop, Market market = Market.US, Lang language = Lang.en)
     {
         WriteLoadingProgressBar();
         Result<StoreEdgeFDProduct> result = await StoreEdgeFDProduct.GetProductAsync(productId, deviceFamily, market, language, cancellationToken);
@@ -23,14 +117,25 @@ public class Commands
             StoreEdgeFDProduct product = result.Value;
             WriteField("Product ID", product.ProductId);
             WriteField("Title", product.Title);
+            WriteField("Logo", product.Logo.Url);
+            WriteField("Screenshots", product.Screenshots.Count.ToString());
+            foreach (var screenshot in product.Screenshots)
+            {
+                Console.WriteLine(screenshot.Url);
+            }
+            WriteField("LastUpdated", product.LastUpdated);
+            WriteField("rating", product.Rating.ToString());
+            WriteField("ratingCount", product.RatingCount);
+            WriteField("size", product.Size);
             if (product.Description is not null)
                 WriteField("Description", product.Description);
             WriteField("Publisher", product.PublisherName);
             WriteField("Installer Type", product.InstallerType.ToString());
+            WriteField("Is Bundle", product.IsBundle.ToString());
         }
         else
         {
-            WriteError(result.Exception, "querying the product ID");
+            Console.WriteLine(result.Exception);
         }
     }
 
@@ -46,13 +151,13 @@ public class Commands
     /// <param name="currentBranch">-c, The current OS branch (i.e. rs_prerelease, ge_release, ni_release, co_release, vb_release)</param>
     /// <param name="OSVersion">-v, The current OS version (i.e. 10.0.26100.0). Leave to null for 10.0.26100.0.</param>
     public async Task Download(
-        [Argument] string productId, 
-        CancellationToken cancellationToken, 
-        DeviceFamily deviceFamily = DeviceFamily.Desktop, 
-        Market market = Market.US, 
+        [Argument] string productId,
+        CancellationToken cancellationToken,
+        DeviceFamily deviceFamily = DeviceFamily.Desktop,
+        Market market = Market.US,
         Lang language = Lang.en,
         string flightRing = "Retail",
-        string flightingBranchName = "",
+        string flightingBranchName = "Retail",
         Library.Version? OSVersion = null,
         string currentBranch = "ge_release")
     {
@@ -122,7 +227,7 @@ public class Commands
 
                     bool frameworkDependencyApplicable = true;
 
-                    DCATPackage? package = packageResult.Value.FirstOrDefault(f => 
+                    DCATPackage? package = packageResult.Value.FirstOrDefault(f =>
                         f.PackageIdentity.Equals(update.Update.PackageIdentityName, StringComparison.OrdinalIgnoreCase) &&
                         f.Version == update.Update.Version);
 
@@ -191,7 +296,7 @@ public class Commands
                         Console.WriteLine($"Failed to get dependencies for version {update.Update.Version}");
                         Console.ResetColor();
                     }
-                    
+
                     Console.WriteLine();
                 }
 

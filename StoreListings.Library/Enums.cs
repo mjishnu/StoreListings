@@ -1,5 +1,18 @@
 ﻿namespace StoreListings.Library;
 
+
+public enum Categories
+{
+    TopFree,
+    TopPaid,
+    BestRated,
+    Specials,
+    NewAndRising,
+    Bestselling,
+    Mostpopular
+
+}
+
 /// <summary>
 /// Represents a Windows device family.
 /// </summary>

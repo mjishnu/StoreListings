@@ -1,7 +1,6 @@
 ﻿using StoreListings.Library.Internal;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
-
 namespace StoreListings.Library;
 
 /// <summary>
@@ -29,19 +28,40 @@ public class StoreEdgeFDProduct
     /// </summary>
     public required string PublisherName { get; set; }
 
+    public required List<Image> Screenshots { get; set; }
+
+    public required Image Logo { get; set; }
+
+    public required string LastUpdated { get; set; }
+
+    public required double? Rating { get; set; }
+
+    public required string? RatingCount { get; set; }
+
+    public required string Size { get; set; }
+
+    public required bool IsBundle { get; set; }
+
     /// <summary>
     /// The installer type.
     /// </summary>
     public required InstallerType InstallerType { get; set; }
 
     [SetsRequiredMembers]
-    private StoreEdgeFDProduct(string productId, string title, string? description, string publisherName, InstallerType installerType)
+    private StoreEdgeFDProduct(string productId, string title, Image logo, List<Image> screenshots, string? description, string publisherName, string lastUpdated, double? rating, string? ratingCount, string size, InstallerType installerType, bool isBundle)
     {
         ProductId = productId;
         Title = title;
+        Logo = logo;
+        Screenshots = screenshots;
         Description = description;
         PublisherName = publisherName;
+        LastUpdated = lastUpdated;
+        Rating = rating;
+        RatingCount = ratingCount;
+        Size = size;
         InstallerType = installerType;
+        IsBundle = isBundle;
     }
 
     public static async Task<Result<StoreEdgeFDProduct>> GetProductAsync(string productId, DeviceFamily deviceFamily, Market market, Lang language, CancellationToken cancellationToken = default)
@@ -78,6 +98,54 @@ public class StoreEdgeFDProduct
             string publisherName = payloadElement.GetProperty("PublisherName").GetString()!;
             // Future-proofing.
             string prodId = payloadElement.GetProperty("ProductId").GetString()!;
+            List<Image> logos = new List<Image>();
+            List<Image> screenshots = new List<Image>();
+
+            if (payloadElement.TryGetProperty("Images", out JsonElement imagesJson))
+            {
+                foreach (JsonElement image in imagesJson.EnumerateArray())
+                {
+                    string type = image.GetProperty("ImageType").GetString()!;
+                    string bgColor = "Transparent";
+                    if (image.TryGetProperty("BackgroundColor", out JsonElement color) && color.GetString()!.StartsWith('#'))
+                    {
+                        bgColor = color.GetString()!;
+                    }
+                    if (type == "logo" | type == "Poster" | type == "BoxArt")
+                    {
+                        logos.Add(new Image(
+                            image.GetProperty("Url").GetString()!,
+                            bgColor,
+                            image.GetProperty("Height").GetInt32(),
+                            image.GetProperty("Width").GetInt32()
+                        ));
+                    }
+                    else if (type == "screenshot")
+                    {
+                        screenshots.Add(new Image(
+                            image.GetProperty("Url").GetString()!,
+                            bgColor,
+                            image.GetProperty("Height").GetInt32(),
+                            image.GetProperty("Width").GetInt32()
+                        ));
+                    }
+
+                }
+            }
+            Image logo = logos.LastOrDefault(img => img.Height == 100 && img.Width == 100, logos[0]);
+
+            string? lastUpdated = payloadElement.GetProperty("RevisionId").GetString()!;
+            lastUpdated = !string.IsNullOrEmpty(lastUpdated) ? DateTime.Parse(lastUpdated).ToString("MMMM dd, yyyy") : "N/A";
+
+            double? rating = payloadElement.GetProperty("AverageRating").GetDouble()!;
+            rating = rating != 0.0 ? rating : null;
+
+            string? ratingCount = FormatRatingCount(payloadElement.GetProperty("RatingCount").GetInt32()!);
+            string size = "N/A";
+            if (payloadElement.TryGetProperty("ApproximateSizeInBytes", out JsonElement sizeJson))
+            {
+                size = FormatSize(sizeJson.GetInt64());
+            }
 
             string? description = null;
             if (payloadElement.TryGetProperty("ShortDescription", out JsonElement shortDesJson) &&
@@ -104,7 +172,14 @@ public class StoreEdgeFDProduct
                 _ => InstallerType.Unknown
             };
 
-            return Result<StoreEdgeFDProduct>.Success(new(prodId, title, description, publisherName, installerType));
+            bool isBundle = false;  
+            JsonElement skuElement = payloadElement.GetProperty("Skus").EnumerateArray().First();
+            if (skuElement.TryGetProperty("BundledSkus", out JsonElement bundleElement))
+            {
+                isBundle = true;
+            }
+
+            return Result<StoreEdgeFDProduct>.Success(new(prodId, title, logo, screenshots, description, publisherName, lastUpdated, rating, ratingCount, size, installerType, isBundle));
         }
         catch (Exception ex)
         {
@@ -157,4 +232,31 @@ public class StoreEdgeFDProduct
             return Result<(string InstallerUrl, string InstallerSwitches)>.Failure(ex);
         }
     }
+    private static string? FormatRatingCount(long count)
+    {
+        if (count >= 1_000_000_000)
+            return (count / 1_000_000_000D).ToString("0.#") + "B";
+        if (count >= 1_000_000)
+            return (count / 1_000_000D).ToString("0.#") + "M";
+        if (count >= 1_000)
+            return (count / 1_000D).ToString("0") + "K";
+        if (count > 0)
+            return count.ToString();
+        return null;
+    }
+
+    private static string FormatSize(long sizeInBytes)
+    {
+        if (sizeInBytes >= 1_000_000_000_000)
+            return (sizeInBytes / 1_000_000_000_000D).ToString("0.#") + " TB";
+        if (sizeInBytes >= 1_000_000_000)
+            return (sizeInBytes / 1_000_000_000D).ToString("0.#") + " GB";
+        if (sizeInBytes >= 1_000_000)
+            return (sizeInBytes / 1_000_000D).ToString("0.#") + " MB";
+        if (sizeInBytes >= 1_000)
+            return (sizeInBytes / 1_000D).ToString("0.#") + " KB";
+        return sizeInBytes + " B";
+    }
+
+
 }
