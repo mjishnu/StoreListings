@@ -24,7 +24,13 @@ public sealed class Card
     public double? AverageRating { get; }
     public Image Image { get; }
 
-    public Card(string productId, string title, string? displayPrice, double? averageRating, Image image)
+    public Card(
+        string productId,
+        string title,
+        string? displayPrice,
+        double? averageRating,
+        Image image
+    )
     {
         ProductId = productId;
         Title = title;

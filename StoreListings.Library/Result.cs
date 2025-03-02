@@ -42,5 +42,6 @@ public readonly struct Result<T>
     }
 
     public static Result<T> Success(T value) => new(value);
+
     public static Result<T> Failure(Exception exception) => new(exception);
 }

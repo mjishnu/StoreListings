@@ -1,7 +1,7 @@
-﻿using StoreListings.Library.Internal;
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using System.Xml.Linq;
+using StoreListings.Library.Internal;
 
 namespace StoreListings.Library;
 
@@ -54,7 +54,9 @@ public static partial class FE3Handler
         public required Cookie NewCookie { get; set; }
     }
 
-    public static async Task<Result<Cookie>> GetCookieAsync(CancellationToken cancellationToken = default)
+    public static async Task<Result<Cookie>> GetCookieAsync(
+        CancellationToken cancellationToken = default
+    )
     {
         try
         {
@@ -66,7 +68,9 @@ public static partial class FE3Handler
                         <To d3p1:mustUnderstand="1" xmlns:d3p1="http://www.w3.org/2003/05/soap-envelope" xmlns="http://www.w3.org/2005/08/addressing">https://fe3.delivery.mp.microsoft.com/ClientWebService/client.asmx</To>
                         <Security d3p1:mustUnderstand="1" xmlns:d3p1="http://www.w3.org/2003/05/soap-envelope" xmlns="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
                             <Timestamp xmlns="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
-                                <Created>{DateTime.UtcNow.ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'")}</Created>
+                                <Created>{DateTime.UtcNow.ToString(
+                    "yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'"
+                )}</Created>
                                 <Expires>2044-08-02T20:09:03Z</Expires>
                             </Timestamp>
                             <WindowsUpdateTicketsToken d4p1:id="ClientMSA" xmlns:d4p1="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns="http://schemas.microsoft.com/msus/2014/10/WindowsUpdateAuthorization"></WindowsUpdateTicketsToken>
@@ -78,7 +82,9 @@ public static partial class FE3Handler
                                 <Expiration>2016-07-27T07:18:09Z</Expiration>
                             </oldCookie>
                             <lastChange>2015-10-21T17:01:07.1472913Z</lastChange>
-                            <currentTime>{DateTime.UtcNow.ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'")}</currentTime>
+                            <currentTime>{DateTime.UtcNow.ToString(
+                    "yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'"
+                )}</currentTime>
                             <protocolVersion>2.50</protocolVersion>
                         </GetCookie>
                     </Body>
@@ -86,21 +92,49 @@ public static partial class FE3Handler
                 """;
 
             HttpClient client = Helpers.GetFE3StoreHttpClient();
-            using HttpResponseMessage response = await client.PostAsync("https://fe3cr.delivery.mp.microsoft.com/ClientWebService/client.asmx", new StringContent(cookie, Encoding.UTF8, "application/soap+xml"), cancellationToken);
+            using HttpResponseMessage response = await client.PostAsync(
+                "https://fe3cr.delivery.mp.microsoft.com/ClientWebService/client.asmx",
+                new StringContent(cookie, Encoding.UTF8, "application/soap+xml"),
+                cancellationToken
+            );
             response.EnsureSuccessStatusCode();
-            XElement doc = await XElement.LoadAsync(await response.Content.ReadAsStreamAsync(), LoadOptions.None, cancellationToken);
-            XElement body = doc.Element(XName.Get("Body", "http://www.w3.org/2003/05/soap-envelope"))!;
-            XElement getCookieResponse = body.Element(XName.Get("GetCookieResponse", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"))!;
-            XElement getCookieResult = getCookieResponse.Element(XName.Get("GetCookieResult", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"))!;
+            XElement doc = await XElement.LoadAsync(
+                await response.Content.ReadAsStreamAsync(),
+                LoadOptions.None,
+                cancellationToken
+            );
+            XElement body = doc.Element(
+                XName.Get("Body", "http://www.w3.org/2003/05/soap-envelope")
+            )!;
+            XElement getCookieResponse = body.Element(
+                XName.Get(
+                    "GetCookieResponse",
+                    "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                )
+            )!;
+            XElement getCookieResult = getCookieResponse.Element(
+                XName.Get(
+                    "GetCookieResult",
+                    "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                )
+            )!;
 
-            XElement cookieData = getCookieResult.Element(XName.Get("EncryptedData", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"))!;
-            XElement expiration = getCookieResult.Element(XName.Get("Expiration", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"))!;
+            XElement cookieData = getCookieResult.Element(
+                XName.Get(
+                    "EncryptedData",
+                    "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                )
+            )!;
+            XElement expiration = getCookieResult.Element(
+                XName.Get(
+                    "Expiration",
+                    "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                )
+            )!;
 
-            return Result<Cookie>.Success(new Cookie
-            {
-                CookieData = cookieData.Value,
-                Expiration = expiration.Value
-            });
+            return Result<Cookie>.Success(
+                new Cookie { CookieData = cookieData.Value, Expiration = expiration.Value }
+            );
         }
         catch (Exception ex)
         {
@@ -108,7 +142,18 @@ public static partial class FE3Handler
         }
     }
 
-    public static async Task<Result<SyncUpdatesResponse>> SyncUpdatesAsync(Cookie cookie, string WuCategoryId, Lang lang, Market market, string currentBranch, string flightRing, string flightingBranchName, Version OSVersion, DeviceFamily deviceFamily, CancellationToken cancellationToken = default)
+    public static async Task<Result<SyncUpdatesResponse>> SyncUpdatesAsync(
+        Cookie cookie,
+        string WuCategoryId,
+        Lang lang,
+        Market market,
+        string currentBranch,
+        string flightRing,
+        string flightingBranchName,
+        Version OSVersion,
+        DeviceFamily deviceFamily,
+        CancellationToken cancellationToken = default
+    )
     {
         try
         {
@@ -121,57 +166,171 @@ public static partial class FE3Handler
 
             while (true)
             {
-                content = GenerateSyncUpdatesPayload(cookie, WuCategoryId, lang, market, currentBranch, flightRing, flightingBranchName, OSVersion, deviceFamily, FoundUpdateIDs, FoundUpdateIDs);
-                using HttpResponseMessage response = await client.PostAsync("https://fe3cr.delivery.mp.microsoft.com/ClientWebService/client.asmx", new StringContent(content, Encoding.UTF8, "application/soap+xml"), cancellationToken);
+                content = GenerateSyncUpdatesPayload(
+                    cookie,
+                    WuCategoryId,
+                    lang,
+                    market,
+                    currentBranch,
+                    flightRing,
+                    flightingBranchName,
+                    OSVersion,
+                    deviceFamily,
+                    FoundUpdateIDs,
+                    FoundUpdateIDs
+                );
+                using HttpResponseMessage response = await client.PostAsync(
+                    "https://fe3cr.delivery.mp.microsoft.com/ClientWebService/client.asmx",
+                    new StringContent(content, Encoding.UTF8, "application/soap+xml"),
+                    cancellationToken
+                );
                 response.EnsureSuccessStatusCode();
-                doc = await XElement.LoadAsync(await response.Content.ReadAsStreamAsync(), LoadOptions.None, cancellationToken);
+                doc = await XElement.LoadAsync(
+                    await response.Content.ReadAsStreamAsync(),
+                    LoadOptions.None,
+                    cancellationToken
+                );
 
-                XElement result = 
-                    doc
-                    .Element(XName.Get("Body", "http://www.w3.org/2003/05/soap-envelope"))!
-                    .Element(XName.Get("SyncUpdatesResponse", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"))!
-                    .Element(XName.Get("SyncUpdatesResult", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"))!;
+                XElement result = doc.Element(
+                            XName.Get("Body", "http://www.w3.org/2003/05/soap-envelope")
+                        )!
+                    .Element(
+                        XName.Get(
+                            "SyncUpdatesResponse",
+                            "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                        )
+                    )!
+                    .Element(
+                        XName.Get(
+                            "SyncUpdatesResult",
+                            "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                        )
+                    )!;
 
-                XElement newCookieXml = result.Element(XName.Get("NewCookie", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"))!;
+                XElement newCookieXml = result.Element(
+                    XName.Get(
+                        "NewCookie",
+                        "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                    )
+                )!;
 
                 currentCookie = new Cookie()
                 {
-                    CookieData = newCookieXml.Element(XName.Get("EncryptedData", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"))!.Value,
-                    Expiration = newCookieXml.Element(XName.Get("Expiration", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"))!.Value
+                    CookieData = newCookieXml
+                        .Element(
+                            XName.Get(
+                                "EncryptedData",
+                                "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                            )
+                        )!
+                        .Value,
+                    Expiration = newCookieXml
+                        .Element(
+                            XName.Get(
+                                "Expiration",
+                                "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                            )
+                        )!
+                        .Value,
                 };
 
-                XElement? extendedUpdatesInfo = result.Element(XName.Get("ExtendedUpdateInfo", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"));
+                XElement? extendedUpdatesInfo = result.Element(
+                    XName.Get(
+                        "ExtendedUpdateInfo",
+                        "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                    )
+                );
 
                 int extendedUpdatesNum;
 
-                if (extendedUpdatesInfo is not null &&
-                    extendedUpdatesInfo.Element(XName.Get("Updates", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"))!.Elements(XName.Get("Update", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService")) is { } updates &&
-                    (extendedUpdatesNum = updates.Count()) > 0)
+                if (
+                    extendedUpdatesInfo is not null
+                    && extendedUpdatesInfo
+                        .Element(
+                            XName.Get(
+                                "Updates",
+                                "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                            )
+                        )!
+                        .Elements(
+                            XName.Get(
+                                "Update",
+                                "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                            )
+                        )
+                        is { } updates
+                    && (extendedUpdatesNum = updates.Count()) > 0
+                )
                 {
-                    IEnumerable<XElement> newUpdates =
-                        result
-                        .Element(XName.Get("NewUpdates", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"))!
-                        .Elements(XName.Get("UpdateInfo", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"));
+                    IEnumerable<XElement> newUpdates = result
+                        .Element(
+                            XName.Get(
+                                "NewUpdates",
+                                "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                            )
+                        )!
+                        .Elements(
+                            XName.Get(
+                                "UpdateInfo",
+                                "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                            )
+                        );
                     Dictionary<string, string> NewUpdateInfo = new(newUpdates.Count());
                     Dictionary<string, string> ExtendedUpdatesInfo = new(extendedUpdatesNum);
                     foreach (XElement update in updates)
                     {
-                        string id = update.Element(XName.Get("ID", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"))!.Value;
+                        string id = update
+                            .Element(
+                                XName.Get(
+                                    "ID",
+                                    "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                                )
+                            )!
+                            .Value;
                         FoundUpdateIDs.Add(id);
-                        ExtendedUpdatesInfo.Add(id, update.Element(XName.Get("Xml", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"))!.Value);
+                        ExtendedUpdatesInfo.Add(
+                            id,
+                            update
+                                .Element(
+                                    XName.Get(
+                                        "Xml",
+                                        "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                                    )
+                                )!
+                                .Value
+                        );
                     }
 
                     foreach (XElement newUpdate in newUpdates)
                     {
-                        string id = newUpdate.Element(XName.Get("ID", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"))!.Value;
-                        NewUpdateInfo.Add(id, newUpdate.Element(XName.Get("Xml", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"))!.Value);
+                        string id = newUpdate
+                            .Element(
+                                XName.Get(
+                                    "ID",
+                                    "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                                )
+                            )!
+                            .Value;
+                        NewUpdateInfo.Add(
+                            id,
+                            newUpdate
+                                .Element(
+                                    XName.Get(
+                                        "Xml",
+                                        "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                                    )
+                                )!
+                                .Value
+                        );
                     }
 
-                    responses.Add(new InternalSyncUpdatesResponse()
-                    {
-                        ExtendedUpdatesInfo = ExtendedUpdatesInfo,
-                        NewUpdatesInfo = NewUpdateInfo
-                    });
+                    responses.Add(
+                        new InternalSyncUpdatesResponse()
+                        {
+                            ExtendedUpdatesInfo = ExtendedUpdatesInfo,
+                            NewUpdatesInfo = NewUpdateInfo,
+                        }
+                    );
                 }
                 else
                 {
@@ -183,12 +342,18 @@ public static partial class FE3Handler
 
             foreach (InternalSyncUpdatesResponse response in responses)
             {
-                foreach (KeyValuePair<string, string> extendedUpdateInfo in response.ExtendedUpdatesInfo)
+                foreach (
+                    KeyValuePair<string, string> extendedUpdateInfo in response.ExtendedUpdatesInfo
+                )
                 {
                     string newUpdateInfo = response.NewUpdatesInfo[extendedUpdateInfo.Key];
-                    if (!extendedUpdateInfo.Value.Contains("<Files") || !newUpdateInfo.Contains("SecuredFragment"))
+                    if (
+                        !extendedUpdateInfo.Value.Contains("<Files")
+                        || !newUpdateInfo.Contains("SecuredFragment")
+                    )
                         continue;
-                    string appendedUpdateInfoXml = $"<Xml>{extendedUpdateInfo.Value}{newUpdateInfo}</Xml>";
+                    string appendedUpdateInfoXml =
+                        $"<Xml>{extendedUpdateInfo.Value}{newUpdateInfo}</Xml>";
                     doc = XElement.Parse(appendedUpdateInfoXml);
 
                     XElement updateIdentity = doc.Element("UpdateIdentity")!;
@@ -196,14 +361,30 @@ public static partial class FE3Handler
                     string revisionNumber = updateIdentity.Attribute("RevisionNumber")!.Value;
 
                     XElement extendedProperties = doc.Element("ExtendedProperties")!;
-                    string packageIdentityName = extendedProperties.Attribute("PackageIdentityName")!.Value;
+                    string packageIdentityName = extendedProperties
+                        .Attribute("PackageIdentityName")!
+                        .Value;
                     bool isFramework = (bool)extendedProperties.Attribute("IsAppxFramework")!;
 
                     List<SyncUpdatesResponse.Update.Platform> platforms;
 
-                    using (JsonDocument jsonApplicabilityDoc = JsonDocument.Parse(doc.Element("ApplicabilityRules")!.Element("Metadata")!.Element("AppxPackageMetadata")!.Element("AppxMetadata")!.Element("ApplicabilityBlob")!.Value))
+                    using (
+                        JsonDocument jsonApplicabilityDoc = JsonDocument.Parse(
+                            doc.Element("ApplicabilityRules")!
+                                .Element("Metadata")!
+                                .Element("AppxPackageMetadata")!
+                                .Element("AppxMetadata")!
+                                .Element("ApplicabilityBlob")!
+                                .Value
+                        )
+                    )
                     {
-                        if (!jsonApplicabilityDoc.RootElement.TryGetProperty("content.targetPlatforms", out JsonElement targetPlatforms))
+                        if (
+                            !jsonApplicabilityDoc.RootElement.TryGetProperty(
+                                "content.targetPlatforms",
+                                out JsonElement targetPlatforms
+                            )
+                        )
                             continue; // Windows 8, not yet supported.
                         int numPlatforms = targetPlatforms.GetArrayLength();
                         platforms = new(numPlatforms);
@@ -212,8 +393,12 @@ public static partial class FE3Handler
                             JsonElement targetPlatform = targetPlatforms[i];
                             SyncUpdatesResponse.Update.Platform platform = new()
                             {
-                                Family = ConvertFE3PlatformToDeviceFamily(targetPlatform.GetProperty("platform.target").GetInt64()),
-                                MinVersion = Version.FromWindowsRepresentation(targetPlatform.GetProperty("platform.minVersion").GetUInt64())
+                                Family = ConvertFE3PlatformToDeviceFamily(
+                                    targetPlatform.GetProperty("platform.target").GetInt64()
+                                ),
+                                MinVersion = Version.FromWindowsRepresentation(
+                                    targetPlatform.GetProperty("platform.minVersion").GetUInt64()
+                                ),
                             };
                             platforms.Add(platform);
                         }
@@ -232,26 +417,29 @@ public static partial class FE3Handler
                         int firstIndex = identifier.AsSpan().IndexOf('_') + 1;
                         int secondIndex = identifier.AsSpan()[firstIndex..].IndexOf('_');
 
-                        updateResponses.Add(new SyncUpdatesResponse.Update()
-                        {
-                            PackageIdentityName = packageIdentityName,
-                            FileName = realName,
-                            UpdateID = updateId,
-                            Digest = digest,
-                            RevisionNumber = revisionNumber,
-                            Version = Version.Parse(identifier.AsSpan()[firstIndex..][..secondIndex], null),
-                            TargetPlatforms = platforms,
-                            IsFramework = isFramework
-                        });
+                        updateResponses.Add(
+                            new SyncUpdatesResponse.Update()
+                            {
+                                PackageIdentityName = packageIdentityName,
+                                FileName = realName,
+                                UpdateID = updateId,
+                                Digest = digest,
+                                RevisionNumber = revisionNumber,
+                                Version = Version.Parse(
+                                    identifier.AsSpan()[firstIndex..][..secondIndex],
+                                    null
+                                ),
+                                TargetPlatforms = platforms,
+                                IsFramework = isFramework,
+                            }
+                        );
                     }
                 }
             }
 
-            return Result<SyncUpdatesResponse>.Success(new SyncUpdatesResponse()
-            {
-                NewCookie = currentCookie,
-                Updates = updateResponses
-            });
+            return Result<SyncUpdatesResponse>.Success(
+                new SyncUpdatesResponse() { NewCookie = currentCookie, Updates = updateResponses }
+            );
         }
         catch (Exception ex)
         {
@@ -259,7 +447,19 @@ public static partial class FE3Handler
         }
     }
 
-    private static string GenerateSyncUpdatesPayload(Cookie cookie, string WuCategoryId, Lang lang, Market market, string currentBranch, string flightRing, string flightingBranchName, Version OSVersion, DeviceFamily deviceFamily, IEnumerable<string> additionalInstalledNonLeafUpdateIDs, IEnumerable<string> additionalOtherCachedUpdateIDs)
+    private static string GenerateSyncUpdatesPayload(
+        Cookie cookie,
+        string WuCategoryId,
+        Lang lang,
+        Market market,
+        string currentBranch,
+        string flightRing,
+        string flightingBranchName,
+        Version OSVersion,
+        DeviceFamily deviceFamily,
+        IEnumerable<string> additionalInstalledNonLeafUpdateIDs,
+        IEnumerable<string> additionalOtherCachedUpdateIDs
+    )
     {
         int flightEnabled = flightRing == "Retail" ? 0 : 1;
         string installType = deviceFamily switch
@@ -269,12 +469,17 @@ public static partial class FE3Handler
             DeviceFamily.Server => "Server",
             DeviceFamily.Holographic => "FactoryOS",
             DeviceFamily.Core => "FactoryOS",
-            _ => "Client"
+            _ => "Client",
         };
-        string cached = string.Join(Environment.NewLine, additionalOtherCachedUpdateIDs.Select(x => $"<int>{x}</int>"));
-        string nonleaf = string.Join(Environment.NewLine, additionalInstalledNonLeafUpdateIDs.Select(x => $"<int>{x}</int>"));
-        return
-            $"""
+        string cached = string.Join(
+            Environment.NewLine,
+            additionalOtherCachedUpdateIDs.Select(x => $"<int>{x}</int>")
+        );
+        string nonleaf = string.Join(
+            Environment.NewLine,
+            additionalInstalledNonLeafUpdateIDs.Select(x => $"<int>{x}</int>")
+        );
+        return $"""
             <s:Envelope xmlns:a="http://www.w3.org/2005/08/addressing" xmlns:s="http://www.w3.org/2003/05/soap-envelope">
               <s:Header>
                 <a:Action s:mustUnderstand="1">http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService/SyncUpdates</a:Action>
@@ -282,7 +487,9 @@ public static partial class FE3Handler
                 <a:To s:mustUnderstand="1">https://fe3.delivery.mp.microsoft.com/ClientWebService/client.asmx</a:To>
                 <o:Security s:mustUnderstand="1" xmlns:o="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
                   <Timestamp xmlns="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
-                    <Created>{DateTime.UtcNow.ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'")}</Created>
+                    <Created>{DateTime.UtcNow.ToString(
+                "yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'"
+            )}</Created>
                     <Expires>2044-08-02T20:09:03Z</Expires>
                   </Timestamp>
                   <wuws:WindowsUpdateTicketsToken wsu:id="ClientMSA" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns:wuws="http://schemas.microsoft.com/msus/2014/10/WindowsUpdateAuthorization"></wuws:WindowsUpdateTicketsToken>
@@ -415,19 +622,33 @@ public static partial class FE3Handler
             """;
     }
 
-    public static DeviceFamily ConvertFE3PlatformToDeviceFamily(long platform) => platform switch
-    {
-        0 => DeviceFamily.Universal,
-        3 => DeviceFamily.Desktop,
-        4 => DeviceFamily.Mobile,
-        5 => DeviceFamily.Xbox,
-        6 => DeviceFamily.Team,
-        10 => DeviceFamily.Holographic,
-        16 => DeviceFamily.Core,
-        _ => DeviceFamily.Unknown
-    };
+    public static DeviceFamily ConvertFE3PlatformToDeviceFamily(long platform) =>
+        platform switch
+        {
+            0 => DeviceFamily.Universal,
+            3 => DeviceFamily.Desktop,
+            4 => DeviceFamily.Mobile,
+            5 => DeviceFamily.Xbox,
+            6 => DeviceFamily.Team,
+            10 => DeviceFamily.Holographic,
+            16 => DeviceFamily.Core,
+            _ => DeviceFamily.Unknown,
+        };
 
-    public static async Task<Result<string>> GetFileUrl(Cookie cookie, string updateID, string revisionNumber, string digest, Lang lang, Market market, string currentBranch, string flightRing, string flightingBranchName, Version OSVersion, DeviceFamily deviceFamily, CancellationToken cancellationToken = default)
+    public static async Task<Result<string>> GetFileUrl(
+        Cookie cookie,
+        string updateID,
+        string revisionNumber,
+        string digest,
+        Lang lang,
+        Market market,
+        string currentBranch,
+        string flightRing,
+        string flightingBranchName,
+        Version OSVersion,
+        DeviceFamily deviceFamily,
+        CancellationToken cancellationToken = default
+    )
     {
         try
         {
@@ -439,63 +660,109 @@ public static partial class FE3Handler
                 DeviceFamily.Server => "Server",
                 DeviceFamily.Holographic => "FactoryOS",
                 DeviceFamily.Core => "FactoryOS",
-                _ => "Client"
+                _ => "Client",
             };
 
             string content = $"""
-            <s:Envelope
-            	xmlns:a="http://www.w3.org/2005/08/addressing"
-            	xmlns:s="http://www.w3.org/2003/05/soap-envelope">
-                <s:Header>
-                    <a:Action s:mustUnderstand="1">http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService/GetExtendedUpdateInfo2</a:Action>
-                    <a:MessageID>urn:uuid:{Guid.NewGuid()}</a:MessageID>
-                    <a:To s:mustUnderstand="1">https://fe3.delivery.mp.microsoft.com/ClientWebService/client.asmx/secured</a:To>
-                    <o:Security s:mustUnderstand="1"
-            			xmlns:o="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
-                        <Timestamp
-            				xmlns="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
-                            <Created>{DateTime.UtcNow.ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'")}</Created>
-                            <Expires>2044-08-02T20:09:03Z</Expires>
-                        </Timestamp>
-                        <wuws:WindowsUpdateTicketsToken wsu:id="ClientMSA" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns:wuws="http://schemas.microsoft.com/msus/2014/10/WindowsUpdateAuthorization"></wuws:WindowsUpdateTicketsToken>
-                    </o:Security>
-                </s:Header>
-                <s:Body>
-                    <GetExtendedUpdateInfo2
-            			xmlns="http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService">
-                        <updateIDs>
-                            <UpdateIdentity>
-                                <UpdateID>{updateID}</UpdateID>
-                                <RevisionNumber>{revisionNumber}</RevisionNumber>
-                            </UpdateIdentity>
-                        </updateIDs>
-                        <infoTypes>
-                            <XmlUpdateFragmentType>FileUrl</XmlUpdateFragmentType>
-                            <XmlUpdateFragmentType>FileDecryption</XmlUpdateFragmentType>
-                        </infoTypes>
-                        <deviceAttributes>BranchReadinessLevel=CB;CurrentBranch={currentBranch};OEMModel=Virtual Machine;FlightRing={flightRing};AttrDataVer=21;SystemManufacturer=Microsoft Corporation;InstallLanguage={lang}-{market};OSUILocale={lang}-{market};InstallationType={installType};FlightingBranchName={flightingBranchName};FirmwareVersion=Hyper-V UEFI Release v2.5;SystemProductName=Virtual Machine;OSSkuId=48;FlightContent=Mainline;App=WU_STORE;OEMName_Uncleaned=Microsoft Corporation;AppVer=0.0.0.0;OSArchitecture=AMD64;SystemSKU=None;UpdateManagementGroup=2;IsFlightingEnabled={flightEnabled};IsDeviceRetailDemo=0;TelemetryLevel=3;OSVersion={OSVersion};DeviceFamily=Windows.{deviceFamily};</deviceAttributes>
-                    </GetExtendedUpdateInfo2>
-                </s:Body>
-            </s:Envelope>
-            """;
+                <s:Envelope
+                	xmlns:a="http://www.w3.org/2005/08/addressing"
+                	xmlns:s="http://www.w3.org/2003/05/soap-envelope">
+                    <s:Header>
+                        <a:Action s:mustUnderstand="1">http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService/GetExtendedUpdateInfo2</a:Action>
+                        <a:MessageID>urn:uuid:{Guid.NewGuid()}</a:MessageID>
+                        <a:To s:mustUnderstand="1">https://fe3.delivery.mp.microsoft.com/ClientWebService/client.asmx/secured</a:To>
+                        <o:Security s:mustUnderstand="1"
+                			xmlns:o="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+                            <Timestamp
+                				xmlns="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
+                                <Created>{DateTime.UtcNow.ToString(
+                    "yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'"
+                )}</Created>
+                                <Expires>2044-08-02T20:09:03Z</Expires>
+                            </Timestamp>
+                            <wuws:WindowsUpdateTicketsToken wsu:id="ClientMSA" xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" xmlns:wuws="http://schemas.microsoft.com/msus/2014/10/WindowsUpdateAuthorization"></wuws:WindowsUpdateTicketsToken>
+                        </o:Security>
+                    </s:Header>
+                    <s:Body>
+                        <GetExtendedUpdateInfo2
+                			xmlns="http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService">
+                            <updateIDs>
+                                <UpdateIdentity>
+                                    <UpdateID>{updateID}</UpdateID>
+                                    <RevisionNumber>{revisionNumber}</RevisionNumber>
+                                </UpdateIdentity>
+                            </updateIDs>
+                            <infoTypes>
+                                <XmlUpdateFragmentType>FileUrl</XmlUpdateFragmentType>
+                                <XmlUpdateFragmentType>FileDecryption</XmlUpdateFragmentType>
+                            </infoTypes>
+                            <deviceAttributes>BranchReadinessLevel=CB;CurrentBranch={currentBranch};OEMModel=Virtual Machine;FlightRing={flightRing};AttrDataVer=21;SystemManufacturer=Microsoft Corporation;InstallLanguage={lang}-{market};OSUILocale={lang}-{market};InstallationType={installType};FlightingBranchName={flightingBranchName};FirmwareVersion=Hyper-V UEFI Release v2.5;SystemProductName=Virtual Machine;OSSkuId=48;FlightContent=Mainline;App=WU_STORE;OEMName_Uncleaned=Microsoft Corporation;AppVer=0.0.0.0;OSArchitecture=AMD64;SystemSKU=None;UpdateManagementGroup=2;IsFlightingEnabled={flightEnabled};IsDeviceRetailDemo=0;TelemetryLevel=3;OSVersion={OSVersion};DeviceFamily=Windows.{deviceFamily};</deviceAttributes>
+                        </GetExtendedUpdateInfo2>
+                    </s:Body>
+                </s:Envelope>
+                """;
 
             HttpClient client = Helpers.GetFE3StoreHttpClient();
-            using HttpResponseMessage response = await client.PostAsync("https://fe3cr.delivery.mp.microsoft.com/ClientWebService/client.asmx/secured", new StringContent(content, Encoding.UTF8, "application/soap+xml"), cancellationToken);
+            using HttpResponseMessage response = await client.PostAsync(
+                "https://fe3cr.delivery.mp.microsoft.com/ClientWebService/client.asmx/secured",
+                new StringContent(content, Encoding.UTF8, "application/soap+xml"),
+                cancellationToken
+            );
             response.EnsureSuccessStatusCode();
-            XElement doc = await XElement.LoadAsync(await response.Content.ReadAsStreamAsync(), LoadOptions.None, cancellationToken);
-            XElement body = doc.Element(XName.Get("Body", "http://www.w3.org/2003/05/soap-envelope"))!;
+            XElement doc = await XElement.LoadAsync(
+                await response.Content.ReadAsStreamAsync(),
+                LoadOptions.None,
+                cancellationToken
+            );
+            XElement body = doc.Element(
+                XName.Get("Body", "http://www.w3.org/2003/05/soap-envelope")
+            )!;
 
-            XElement getExtendedUpdateInfo2Response = body.Element(XName.Get("GetExtendedUpdateInfo2Response", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"))!;
-            XElement getExtendedUpdateInfo2Result = getExtendedUpdateInfo2Response.Element(XName.Get("GetExtendedUpdateInfo2Result", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"))!;
-            XElement fileLocations = getExtendedUpdateInfo2Result.Element(XName.Get("FileLocations", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"))!;
-            IEnumerable<XElement> listOfLocations = fileLocations.Elements(XName.Get("FileLocation", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"))!;
+            XElement getExtendedUpdateInfo2Response = body.Element(
+                XName.Get(
+                    "GetExtendedUpdateInfo2Response",
+                    "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                )
+            )!;
+            XElement getExtendedUpdateInfo2Result = getExtendedUpdateInfo2Response.Element(
+                XName.Get(
+                    "GetExtendedUpdateInfo2Result",
+                    "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                )
+            )!;
+            XElement fileLocations = getExtendedUpdateInfo2Result.Element(
+                XName.Get(
+                    "FileLocations",
+                    "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                )
+            )!;
+            IEnumerable<XElement> listOfLocations = fileLocations.Elements(
+                XName.Get(
+                    "FileLocation",
+                    "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                )
+            )!;
 
             foreach (XElement fileLocation in listOfLocations)
             {
-                string fileDigest = fileLocation.Element(XName.Get("FileDigest", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"))!.Value;
+                string fileDigest = fileLocation
+                    .Element(
+                        XName.Get(
+                            "FileDigest",
+                            "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                        )
+                    )!
+                    .Value;
                 if (fileDigest != digest)
                     continue;
-                string fileUrl = fileLocation.Element(XName.Get("Url", "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"))!.Value;
+                string fileUrl = fileLocation
+                    .Element(
+                        XName.Get(
+                            "Url",
+                            "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
+                        )
+                    )!
+                    .Value;
                 return Result<string>.Success(fileUrl);
             }
 

@@ -1,5 +1,5 @@
-﻿using StoreListings.Library.Internal;
-using System.Text.Json;
+﻿using System.Text.Json;
+using StoreListings.Library.Internal;
 
 namespace StoreListings.Library;
 
@@ -29,10 +29,16 @@ public class DCATPackage
 
     public required IEnumerable<PlatformDependency> PlatformDependencies { get; set; }
 
-    public static async Task<Result<IEnumerable<DCATPackage>>> GetPackagesAsync(string packageId, Market market, Lang lang, bool includeNeutral)
+    public static async Task<Result<IEnumerable<DCATPackage>>> GetPackagesAsync(
+        string packageId,
+        Market market,
+        Lang lang,
+        bool includeNeutral
+    )
     {
         string langList = $"{lang}-{market},{lang}{(includeNeutral ? ",neutral" : "")}";
-        string url = $"https://displaycatalog.mp.microsoft.com/v7.0/products/{packageId}?market={market}&languages={langList}";
+        string url =
+            $"https://displaycatalog.mp.microsoft.com/v7.0/products/{packageId}?market={market}&languages={langList}";
         HttpClient client = Helpers.GetStoreHttpClient();
 
         try
@@ -51,11 +57,12 @@ public class DCATPackage
             JsonElement root = json!.RootElement.GetProperty("Product");
             if (!response.IsSuccessStatusCode)
             {
-                return Result<IEnumerable<DCATPackage>>.Failure(new Exception(root.GetProperty("message").GetString()));
+                return Result<IEnumerable<DCATPackage>>.Failure(
+                    new Exception(root.GetProperty("message").GetString())
+                );
             }
 
-            JsonElement packagesJson = root
-                .GetProperty("DisplaySkuAvailabilities")[0]
+            JsonElement packagesJson = root.GetProperty("DisplaySkuAvailabilities")[0]
                 .GetProperty("Sku")
                 .GetProperty("Properties")
                 .GetProperty("Packages");
@@ -64,12 +71,19 @@ public class DCATPackage
             for (int i = 0; i < packagesJson.GetArrayLength(); i++)
             {
                 JsonElement packageJson = packagesJson[i];
-                int platformDependenciesCount = packageJson.GetProperty("PlatformDependencies").GetArrayLength();
+                int platformDependenciesCount = packageJson
+                    .GetProperty("PlatformDependencies")
+                    .GetArrayLength();
                 List<PlatformDependency> platformDependencies = new(platformDependenciesCount);
                 for (int j = 0; j < platformDependenciesCount; j++)
                 {
-                    JsonElement platformDependencyJson = packageJson.GetProperty("PlatformDependencies")[j];
-                    DeviceFamily platform = platformDependencyJson.GetProperty("PlatformName").GetString()!.ToLower() switch
+                    JsonElement platformDependencyJson = packageJson.GetProperty(
+                        "PlatformDependencies"
+                    )[j];
+                    DeviceFamily platform = platformDependencyJson
+                        .GetProperty("PlatformName")
+                        .GetString()!
+                        .ToLower() switch
                     {
                         "windows.desktop" => DeviceFamily.Desktop,
                         "windows.server" => DeviceFamily.Server,
@@ -82,35 +96,58 @@ public class DCATPackage
                         "windows.xbox" => DeviceFamily.Xbox,
                         "windows.universal" => DeviceFamily.Universal,
                         // TODO: Add windows.windows8x and windows.windowsphone8x
-                        _ => DeviceFamily.Unknown
+                        _ => DeviceFamily.Unknown,
                     };
-                    platformDependencies.Add(new PlatformDependency
-                    {
-                        Platform = platform,
-                        MinVersion = Version.FromWindowsRepresentation(platformDependencyJson.GetProperty("MinVersion").GetUInt64())
-                    });
+                    platformDependencies.Add(
+                        new PlatformDependency
+                        {
+                            Platform = platform,
+                            MinVersion = Version.FromWindowsRepresentation(
+                                platformDependencyJson.GetProperty("MinVersion").GetUInt64()
+                            ),
+                        }
+                    );
                 }
 
-                int frameworkDependenciesCount = packageJson.GetProperty("FrameworkDependencies").GetArrayLength();
+                int frameworkDependenciesCount = packageJson
+                    .GetProperty("FrameworkDependencies")
+                    .GetArrayLength();
                 List<FrameworkDependency> frameworkDependencies = new(frameworkDependenciesCount);
                 for (int j = 0; j < frameworkDependenciesCount; j++)
                 {
-                    JsonElement frameworkDependencyJson = packageJson.GetProperty("FrameworkDependencies")[j];
-                    frameworkDependencies.Add(new FrameworkDependency
-                    {
-                        PackageIdentity = frameworkDependencyJson.GetProperty("PackageIdentity").GetString()!,
-                        MinVersion = Version.FromWindowsRepresentation(frameworkDependencyJson.GetProperty("MinVersion").GetUInt64())
-                    });
+                    JsonElement frameworkDependencyJson = packageJson.GetProperty(
+                        "FrameworkDependencies"
+                    )[j];
+                    frameworkDependencies.Add(
+                        new FrameworkDependency
+                        {
+                            PackageIdentity = frameworkDependencyJson
+                                .GetProperty("PackageIdentity")
+                                .GetString()!,
+                            MinVersion = Version.FromWindowsRepresentation(
+                                frameworkDependencyJson.GetProperty("MinVersion").GetUInt64()
+                            ),
+                        }
+                    );
                 }
 
-                packages.Add(new DCATPackage
-                {
-                    WuCategoryId = packageJson.GetProperty("FulfillmentData").GetProperty("WuCategoryId").GetString()!,
-                    Version = Version.FromWindowsRepresentation(ulong.Parse(packageJson.GetProperty("Version").GetString()!)),
-                    FrameworkDependencies = frameworkDependencies,
-                    PlatformDependencies = platformDependencies,
-                    PackageIdentity = root.GetProperty("Properties").GetProperty("PackageIdentityName").GetString()!
-                });
+                packages.Add(
+                    new DCATPackage
+                    {
+                        WuCategoryId = packageJson
+                            .GetProperty("FulfillmentData")
+                            .GetProperty("WuCategoryId")
+                            .GetString()!,
+                        Version = Version.FromWindowsRepresentation(
+                            ulong.Parse(packageJson.GetProperty("Version").GetString()!)
+                        ),
+                        FrameworkDependencies = frameworkDependencies,
+                        PlatformDependencies = platformDependencies,
+                        PackageIdentity = root.GetProperty("Properties")
+                            .GetProperty("PackageIdentityName")
+                            .GetString()!,
+                    }
+                );
             }
 
             return Result<IEnumerable<DCATPackage>>.Success(packages);

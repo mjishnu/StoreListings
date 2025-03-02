@@ -1,7 +1,6 @@
 ﻿namespace StoreListings.Library;
 
-
-public enum Categories
+public enum Category
 {
     TopFree,
     TopPaid,
@@ -9,8 +8,7 @@ public enum Categories
     Specials,
     NewAndRising,
     Bestselling,
-    Mostpopular
-
+    Mostpopular,
 }
 
 /// <summary>
@@ -73,7 +71,7 @@ public enum DeviceFamily
     /// <summary>
     /// Universal (all device families)
     /// </summary>
-    Universal
+    Universal,
 
     // StoreLib also suggests 8828080 for Andromeda, but UUPMediaCreator says that Andromeda uses Core?
     // Andromeda is dead anyways so I guess it won't hurt leaving it out.
@@ -97,7 +95,7 @@ public enum InstallerType
     /// <summary>
     /// An unknown installer type.
     /// </summary>
-    Unknown
+    Unknown,
 }
 
 /// <summary>
@@ -346,7 +344,7 @@ public enum Market
     MC,
     SM,
     ME,
-    VA
+    VA,
 }
 
 /// <summary>
@@ -588,5 +586,5 @@ public enum Lang
     yo,
     zgh,
     zh,
-    zu
+    zu,
 }

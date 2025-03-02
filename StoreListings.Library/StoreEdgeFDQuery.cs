@@ -1,13 +1,15 @@
-﻿using StoreListings.Library.Internal;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
-namespace StoreListings.Library;
+using StoreListings.Library.Internal;
 
+namespace StoreListings.Library;
 
 public class StoreEdgeFDQuery
 {
+    /// <summary>
+    /// list of cards returned by the query.
+    /// </summary>
     public required List<Card> Cards { get; set; }
-
 
     [SetsRequiredMembers]
     private StoreEdgeFDQuery(List<Card> cards)
@@ -15,18 +17,28 @@ public class StoreEdgeFDQuery
         Cards = cards;
     }
 
-    public static async Task<Result<StoreEdgeFDQuery>> GetRecommendations(Categories categories, DeviceFamily deviceFamily, Market market, Lang language, CancellationToken cancellationToken = default)
+    public static async Task<Result<StoreEdgeFDQuery>> GetRecommendations(
+        Category category,
+        DeviceFamily deviceFamily,
+        Market market,
+        Lang language,
+        CancellationToken cancellationToken = default
+    )
     {
         HttpClient client = Helpers.GetStoreHttpClient();
 
         try
         {
-            string url = $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/recommendations/collections/{categories}?market={market}&locale={language}-{market}&deviceFamily=Windows.{deviceFamily}";
+            string url =
+                $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/recommendations/collections/{category}?market={market}&locale={language}-{market}&deviceFamily=Windows.{deviceFamily}";
             using HttpResponseMessage response = await client.GetAsync(url, cancellationToken);
             JsonDocument? json = null;
             try
             {
-                json = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(), cancellationToken: cancellationToken);
+                json = await JsonDocument.ParseAsync(
+                    await response.Content.ReadAsStreamAsync(),
+                    cancellationToken: cancellationToken
+                );
             }
             catch
             {
@@ -37,13 +49,18 @@ public class StoreEdgeFDQuery
 
             if (!response.IsSuccessStatusCode)
             {
-                return Result<StoreEdgeFDQuery>.Failure(new Exception(jsondoc.RootElement.GetProperty("message").GetString()));
+                return Result<StoreEdgeFDQuery>.Failure(
+                    new Exception(jsondoc.RootElement.GetProperty("message").GetString())
+                );
             }
 
             JsonElement payloadElement = jsondoc.RootElement.GetProperty("Payload");
             JsonElement cardsElement = payloadElement.GetProperty("Cards");
 
-            if (payloadElement.TryGetProperty("Cards", out JsonElement cardElement) && cardElement.GetArrayLength() >= 1)
+            if (
+                payloadElement.TryGetProperty("Cards", out JsonElement cardElement)
+                && cardElement.GetArrayLength() >= 1
+            )
             {
                 return Result<StoreEdgeFDQuery>.Success(new(GetCards(cardElement)));
             }
@@ -58,18 +75,28 @@ public class StoreEdgeFDQuery
         }
     }
 
-    public static async Task<Result<StoreEdgeFDQuery>> GetSearchProduct(string query, DeviceFamily deviceFamily, Market market, Lang language, CancellationToken cancellationToken = default)
+    public static async Task<Result<StoreEdgeFDQuery>> GetSearchProduct(
+        string query,
+        DeviceFamily deviceFamily,
+        Market market,
+        Lang language,
+        CancellationToken cancellationToken = default
+    )
     {
         HttpClient client = Helpers.GetStoreHttpClient();
 
         try
         {
-            string url = $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/pages/searchResults?query={query}&market={market}&locale={language}-{market}&deviceFamily=Windows.{deviceFamily}";
+            string url =
+                $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/pages/searchResults?query={query}&market={market}&locale={language}-{market}&deviceFamily=Windows.{deviceFamily}";
             using HttpResponseMessage response = await client.GetAsync(url, cancellationToken);
             JsonDocument? json = null;
             try
             {
-                json = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(), cancellationToken: cancellationToken);
+                json = await JsonDocument.ParseAsync(
+                    await response.Content.ReadAsStreamAsync(),
+                    cancellationToken: cancellationToken
+                );
             }
             catch
             {
@@ -80,14 +107,22 @@ public class StoreEdgeFDQuery
 
             if (!response.IsSuccessStatusCode)
             {
-                return Result<StoreEdgeFDQuery>.Failure(new Exception(jsondoc.RootElement.GetProperty("message").GetString()));
+                return Result<StoreEdgeFDQuery>.Failure(
+                    new Exception(jsondoc.RootElement.GetProperty("message").GetString())
+                );
             }
 
-            JsonElement payloadElement = jsondoc.RootElement.EnumerateArray().Last().GetProperty("Payload");
+            JsonElement payloadElement = jsondoc
+                .RootElement.EnumerateArray()
+                .Last()
+                .GetProperty("Payload");
 
-            if (payloadElement.TryGetProperty("SearchResults", out JsonElement searchElement) && searchElement.GetArrayLength() >= 1)
+            if (
+                payloadElement.TryGetProperty("SearchResults", out JsonElement searchElement)
+                && searchElement.GetArrayLength() >= 1
+            )
             {
-            return Result<StoreEdgeFDQuery>.Success(new(GetCards(searchElement)));
+                return Result<StoreEdgeFDQuery>.Success(new(GetCards(searchElement)));
             }
             else
             {
@@ -100,18 +135,28 @@ public class StoreEdgeFDQuery
         }
     }
 
-    public static async Task<Result<StoreEdgeFDQuery>> GetSearchSuggestion(string query, DeviceFamily deviceFamily, Market market, Lang language, CancellationToken cancellationToken = default)
+    public static async Task<Result<StoreEdgeFDQuery>> GetSearchSuggestion(
+        string query,
+        DeviceFamily deviceFamily,
+        Market market,
+        Lang language,
+        CancellationToken cancellationToken = default
+    )
     {
         HttpClient client = Helpers.GetStoreHttpClient();
 
         try
         {
-            string url = $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/autosuggest?prefix={query}&market={market}&locale={language}-{market}&deviceFamily=Windows.{deviceFamily}";
+            string url =
+                $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/autosuggest?prefix={query}&market={market}&locale={language}-{market}&deviceFamily=Windows.{deviceFamily}";
             using HttpResponseMessage response = await client.GetAsync(url, cancellationToken);
             JsonDocument? json = null;
             try
             {
-                json = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(), cancellationToken: cancellationToken);
+                json = await JsonDocument.ParseAsync(
+                    await response.Content.ReadAsStreamAsync(),
+                    cancellationToken: cancellationToken
+                );
             }
             catch
             {
@@ -122,11 +167,16 @@ public class StoreEdgeFDQuery
 
             if (!response.IsSuccessStatusCode)
             {
-                return Result<StoreEdgeFDQuery>.Failure(new Exception(jsondoc.RootElement.GetProperty("message").GetString()));
+                return Result<StoreEdgeFDQuery>.Failure(
+                    new Exception(jsondoc.RootElement.GetProperty("message").GetString())
+                );
             }
 
             JsonElement payloadElement = jsondoc.RootElement.GetProperty("Payload");
-            if (payloadElement.TryGetProperty("AssetSuggestions", out JsonElement suggestionElement) && suggestionElement.GetArrayLength() >= 1)
+            if (
+                payloadElement.TryGetProperty("AssetSuggestions", out JsonElement suggestionElement)
+                && suggestionElement.GetArrayLength() >= 1
+            )
             {
                 return Result<StoreEdgeFDQuery>.Success(new(GetCards(suggestionElement)));
             }
@@ -141,18 +191,28 @@ public class StoreEdgeFDQuery
         }
     }
 
-    public static async Task<Result<StoreEdgeFDQuery>> GetBundles(string ProductId, DeviceFamily deviceFamily, Market market, Lang language, CancellationToken cancellationToken = default)
+    public static async Task<Result<StoreEdgeFDQuery>> GetBundles(
+        string productId,
+        DeviceFamily deviceFamily,
+        Market market,
+        Lang language,
+        CancellationToken cancellationToken = default
+    )
     {
         HttpClient client = Helpers.GetStoreHttpClient();
 
         try
         {
-            string url = $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/products/{ProductId}/BundleParts?&market={market}&locale={language}-{market}&deviceFamily=Windows.{deviceFamily}";
+            string url =
+                $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/products/{productId}/BundleParts?&market={market}&locale={language}-{market}&deviceFamily=Windows.{deviceFamily}";
             using HttpResponseMessage response = await client.GetAsync(url, cancellationToken);
             JsonDocument? json = null;
             try
             {
-                json = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(), cancellationToken: cancellationToken);
+                json = await JsonDocument.ParseAsync(
+                    await response.Content.ReadAsStreamAsync(),
+                    cancellationToken: cancellationToken
+                );
             }
             catch
             {
@@ -163,24 +223,34 @@ public class StoreEdgeFDQuery
 
             if (!response.IsSuccessStatusCode)
             {
-                return Result<StoreEdgeFDQuery>.Failure(new Exception(jsondoc.RootElement.GetProperty("message").GetString()));
+                return Result<StoreEdgeFDQuery>.Failure(
+                    new Exception(jsondoc.RootElement.GetProperty("message").GetString())
+                );
             }
 
             JsonElement payloadElement = jsondoc.RootElement.GetProperty("Payload");
-            if (payloadElement.TryGetProperty("0017",out JsonElement _0017Element) && _0017Element.GetProperty("Products").GetArrayLength() >=1)
+            if (
+                payloadElement.TryGetProperty("0017", out JsonElement _0017Element)
+                && _0017Element.GetProperty("Products").GetArrayLength() >= 1
+            )
             {
-
-                return Result<StoreEdgeFDQuery>.Success(new(GetCards(_0017Element.GetProperty("Products"))));
+                return Result<StoreEdgeFDQuery>.Success(
+                    new(GetCards(_0017Element.GetProperty("Products")))
+                );
             }
-            else if (payloadElement.TryGetProperty("0010", out JsonElement _0010Element) && _0010Element.GetProperty("Products").GetArrayLength() >= 1)
+            else if (
+                payloadElement.TryGetProperty("0010", out JsonElement _0010Element)
+                && _0010Element.GetProperty("Products").GetArrayLength() >= 1
+            )
             {
-                return Result<StoreEdgeFDQuery>.Success(new(GetCards(_0010Element.GetProperty("Products"))));
+                return Result<StoreEdgeFDQuery>.Success(
+                    new(GetCards(_0010Element.GetProperty("Products")))
+                );
             }
             else
             {
                 throw new Exception("No bundles found");
             }
-
         }
         catch (Exception ex)
         {
@@ -190,40 +260,55 @@ public class StoreEdgeFDQuery
 
     private static List<Card> GetCards(JsonElement cardsElement)
     {
-        return cardsElement.EnumerateArray().Select(card =>
+        return cardsElement
+            .EnumerateArray()
+            .Select(card =>
             {
                 List<JsonElement> images = card.GetProperty("Images").EnumerateArray().ToList();
                 IEnumerable<JsonElement> filteredImages = images.Where(img =>
-                    img.GetProperty("Height").GetInt32() == 300 &&
-                    img.GetProperty("Width").GetInt32() == 300);
+                    img.GetProperty("Height").GetInt32() == 300
+                    && img.GetProperty("Width").GetInt32() == 300
+                );
                 JsonElement image = filteredImages.Any() ? filteredImages.Last() : images[0];
-                string ImageBackgroundColor = "Transparent";
-                if (image.TryGetProperty("BackgroundColor", out JsonElement color) && color.GetString()!.StartsWith('#'))
+                string imageBackgroundColor = "Transparent";
+                if (
+                    image.TryGetProperty("BackgroundColor", out JsonElement color)
+                    && color.GetString()!.StartsWith('#')
+                )
                 {
-                     ImageBackgroundColor = color.GetString()!;
+                    imageBackgroundColor = color.GetString()!;
                 }
-                string? DisplayPrice;
+                string? displayPrice;
                 if (image.TryGetProperty("DisplayPrice", out JsonElement price))
                 {
-                    DisplayPrice = price.GetString()!;
+                    displayPrice = price.GetString()!;
                 }
                 else
                 {
-                    DisplayPrice = null;
+                    displayPrice = null;
+                }
+                double? averageRating = null;
+                if (
+                    card.TryGetProperty("AverageRating", out JsonElement rating)
+                    && rating.GetDouble() != 0.0
+                )
+                {
+                    averageRating = rating.GetDouble();
                 }
 
-            return new Card(
-                ProductId: card.GetProperty("ProductId").GetString()!,
-                Title: card.GetProperty("Title").GetString()!,
-                DisplayPrice: DisplayPrice,
-                AverageRating: card.GetProperty("AverageRating").GetDouble() != 0.0
-                    ? card.GetProperty("AverageRating").GetDouble()
-                    : null,
-                Image: new Image(
-                    Url: image.GetProperty("Url").GetString()!,
-                    BackgroundColor: ImageBackgroundColor,
-                    Height: image.GetProperty("Height").GetInt32(),
-                    Width: image.GetProperty("Width").GetInt32())
+                return new Card(
+                    card.GetProperty("ProductId").GetString()!,
+                    card.GetProperty("Title").GetString()!,
+                    displayPrice,
+                    averageRating,
+                    new Image(
+                        image.GetProperty("Url").GetString()!,
+                        imageBackgroundColor,
+                        image.GetProperty("Height").GetInt32(),
+                        image.GetProperty("Width").GetInt32()
+                    )
                 );
-            }).ToList();
-}}
+            })
+            .ToList();
+    }
+}
