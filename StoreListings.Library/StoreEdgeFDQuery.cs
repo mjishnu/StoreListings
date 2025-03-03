@@ -64,10 +64,7 @@ public class StoreEdgeFDQuery
             {
                 return Result<StoreEdgeFDQuery>.Success(new(GetCards(cardElement)));
             }
-            else
-            {
-                throw new Exception("No recommendations found");
-            }
+            return Result<StoreEdgeFDQuery>.Success(new StoreEdgeFDQuery(new List<Card>()));
         }
         catch (Exception ex)
         {
@@ -124,10 +121,7 @@ public class StoreEdgeFDQuery
             {
                 return Result<StoreEdgeFDQuery>.Success(new(GetCards(searchElement)));
             }
-            else
-            {
-                throw new Exception("No search results found");
-            }
+            return Result<StoreEdgeFDQuery>.Success(new StoreEdgeFDQuery(new List<Card>()));
         }
         catch (Exception ex)
         {
@@ -180,10 +174,7 @@ public class StoreEdgeFDQuery
             {
                 return Result<StoreEdgeFDQuery>.Success(new(GetCards(suggestionElement)));
             }
-            else
-            {
-                throw new Exception("No search suggestions found");
-            }
+            return Result<StoreEdgeFDQuery>.Success(new StoreEdgeFDQuery(new List<Card>()));
         }
         catch (Exception ex)
         {
@@ -247,10 +238,7 @@ public class StoreEdgeFDQuery
                     new(GetCards(_0010Element.GetProperty("Products")))
                 );
             }
-            else
-            {
-                throw new Exception("No bundles found");
-            }
+            return Result<StoreEdgeFDQuery>.Success(new StoreEdgeFDQuery(new List<Card>()));
         }
         catch (Exception ex)
         {
