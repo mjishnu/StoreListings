@@ -57,7 +57,7 @@ public class Commands
     /// <summary>
     /// Query suggestion for a keyword from Microsoft Store.
     /// </summary>
-    /// <param name="productId">The productId to query.</param>
+    /// <param name="productId">The product ID to query.</param>
     /// <param name="deviceFamily">-d, The device family.</param>
     /// <param name="market">-m, The store market/region to query from.</param>
     /// <param name="language">-l, The language, for listings that use localization.</param>
@@ -103,13 +103,13 @@ public class Commands
     }
 
     /// <summary>
-    /// Query recommendations from Microsoft Store based on catagory.
+    /// Query recommendations from Microsoft Store based on category.
     /// </summary>
-    /// <param name="category">-c, The catagory on which recommendations should be fetched.</param>
+    /// <param name="category">-c, The category on which recommendations should be fetched.</param>
     /// <param name="deviceFamily">-d, The device family.</param>
     /// <param name="market">-m, The store market/region to query from.</param>
     /// <param name="language">-l, The language, for listings that use localization.</param>
-    public async Task QueryRecommendation(
+    public async Task QueryRecommendations(
         CancellationToken cancellationToken,
         Category category = Category.TopFree,
         DeviceFamily deviceFamily = DeviceFamily.Desktop,
@@ -151,13 +151,13 @@ public class Commands
     }
 
     /// <summary>
-    /// Query suggestion for a keyword from Microsoft Store.
+    /// Query suggestions for a keyword from Microsoft Store.
     /// </summary>
     /// <param name="query">The keyword to query.</param>
     /// <param name="deviceFamily">-d, The device family.</param>
     /// <param name="market">-m, The store market/region to query from.</param>
     /// <param name="language">-l, The language, for listings that use localization.</param>
-    public async Task QuerySuggestion(
+    public async Task QuerySuggestions(
         [Argument] string query,
         CancellationToken cancellationToken,
         DeviceFamily deviceFamily = DeviceFamily.Desktop,
