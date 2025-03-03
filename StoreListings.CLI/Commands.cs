@@ -55,7 +55,7 @@ public class Commands
     }
 
     /// <summary>
-    /// Query suggestion for a keyword from Microsoft Store.
+    /// Query bundle details from Microsoft Store.
     /// </summary>
     /// <param name="productId">The product ID to query.</param>
     /// <param name="deviceFamily">-d, The device family.</param>
