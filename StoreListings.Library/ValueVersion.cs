@@ -3,7 +3,11 @@ using System.Globalization;
 
 namespace StoreListings.Library;
 
-public readonly struct Version : IComparable, IComparable<Version?>, IEquatable<Version>, ISpanParsable<Version>
+public readonly struct Version
+    : IComparable,
+        IComparable<Version?>,
+        IEquatable<Version>,
+        ISpanParsable<Version>
 {
     public uint Major { get; }
 
@@ -21,7 +25,7 @@ public readonly struct Version : IComparable, IComparable<Version?>, IEquatable<
         Revision = revision;
     }
 
-    public readonly override string ToString()
+    public override readonly string ToString()
     {
         return $"{Major}.{Minor}.{Build}.{Revision}";
     }
@@ -46,7 +50,11 @@ public readonly struct Version : IComparable, IComparable<Version?>, IEquatable<
         return ParseVersion(s, throwOnFailure: true)!.Value;
     }
 
-    public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out Version result)
+    public static bool TryParse(
+        ReadOnlySpan<char> s,
+        IFormatProvider? provider,
+        [MaybeNullWhen(false)] out Version result
+    )
     {
         Version? parsedVersion = ParseVersion(s, false);
         result = parsedVersion.GetValueOrDefault();
@@ -58,7 +66,11 @@ public readonly struct Version : IComparable, IComparable<Version?>, IEquatable<
         return ParseVersion(s, throwOnFailure: true)!.Value;
     }
 
-    public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, [MaybeNullWhen(false)] out Version result)
+    public static bool TryParse(
+        [NotNullWhen(true)] string? s,
+        IFormatProvider? provider,
+        [MaybeNullWhen(false)] out Version result
+    )
     {
         if (string.IsNullOrEmpty(s))
         {
@@ -76,7 +88,8 @@ public readonly struct Version : IComparable, IComparable<Version?>, IEquatable<
         int majorEnd = input.IndexOf('.');
         if (majorEnd < 0)
         {
-            if (throwOnFailure) throw new ArgumentException("Invalid version string.", nameof(input));
+            if (throwOnFailure)
+                throw new ArgumentException("Invalid version string.", nameof(input));
             return null;
         }
 
@@ -93,16 +106,29 @@ public readonly struct Version : IComparable, IComparable<Version?>, IEquatable<
                 buildEnd += (minorEnd + 1);
                 if (input.Slice(buildEnd + 1).Contains('.'))
                 {
-                    if (throwOnFailure) throw new ArgumentException("Version string portion was too short or too long.", nameof(input));
+                    if (throwOnFailure)
+                        throw new ArgumentException(
+                            "Version string portion was too short or too long.",
+                            nameof(input)
+                        );
                     return null;
                 }
             }
         }
 
-        uint minor, build, revision;
+        uint minor,
+            build,
+            revision;
 
         // Parse the major version
-        if (!TryParseComponent(input.Slice(0, majorEnd), nameof(input), throwOnFailure, out uint major))
+        if (
+            !TryParseComponent(
+                input.Slice(0, majorEnd),
+                nameof(input),
+                throwOnFailure,
+                out uint major
+            )
+        )
         {
             return null;
         }
@@ -110,7 +136,14 @@ public readonly struct Version : IComparable, IComparable<Version?>, IEquatable<
         if (minorEnd != -1)
         {
             // If there's more than a major and minor, parse the minor, too.
-            if (!TryParseComponent(input.Slice(majorEnd + 1, minorEnd - majorEnd - 1), nameof(input), throwOnFailure, out minor))
+            if (
+                !TryParseComponent(
+                    input.Slice(majorEnd + 1, minorEnd - majorEnd - 1),
+                    nameof(input),
+                    throwOnFailure,
+                    out minor
+                )
+            )
             {
                 return null;
             }
@@ -119,38 +152,73 @@ public readonly struct Version : IComparable, IComparable<Version?>, IEquatable<
             {
                 // major.minor.build.revision
                 return
-                    TryParseComponent(input.Slice(minorEnd + 1, buildEnd - minorEnd - 1), nameof(build), throwOnFailure, out build) &&
-                    TryParseComponent(input.Slice(buildEnd + 1), nameof(revision), throwOnFailure, out revision) ?
-                        new Version(major, minor, build, revision) :
-                        null;
+                    TryParseComponent(
+                        input.Slice(minorEnd + 1, buildEnd - minorEnd - 1),
+                        nameof(build),
+                        throwOnFailure,
+                        out build
+                    )
+                    && TryParseComponent(
+                        input.Slice(buildEnd + 1),
+                        nameof(revision),
+                        throwOnFailure,
+                        out revision
+                    )
+                    ? new Version(major, minor, build, revision)
+                    : null;
             }
             else
             {
                 // major.minor.build
-                return TryParseComponent(input.Slice(minorEnd + 1), nameof(build), throwOnFailure, out build) ?
-                    new Version(major, minor, build, 0) :
-                    null;
+                return TryParseComponent(
+                    input.Slice(minorEnd + 1),
+                    nameof(build),
+                    throwOnFailure,
+                    out build
+                )
+                    ? new Version(major, minor, build, 0)
+                    : null;
             }
         }
         else
         {
             // major.minor
-            return TryParseComponent(input.Slice(majorEnd + 1), nameof(input), throwOnFailure, out minor) ?
-                new Version(major, minor, 0, 0) :
-                null;
+            return TryParseComponent(
+                input.Slice(majorEnd + 1),
+                nameof(input),
+                throwOnFailure,
+                out minor
+            )
+                ? new Version(major, minor, 0, 0)
+                : null;
         }
     }
 
-    private static bool TryParseComponent(ReadOnlySpan<char> component, string componentName, bool throwOnFailure, out uint parsedComponent)
+    private static bool TryParseComponent(
+        ReadOnlySpan<char> component,
+        string componentName,
+        bool throwOnFailure,
+        out uint parsedComponent
+    )
     {
         if (throwOnFailure)
         {
-            parsedComponent = uint.Parse(component, NumberStyles.Integer, CultureInfo.InvariantCulture);
+            parsedComponent = uint.Parse(
+                component,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture
+            );
             ArgumentOutOfRangeException.ThrowIfNegative(parsedComponent, componentName);
             return true;
         }
 
-        return uint.TryParse(component, NumberStyles.Integer, CultureInfo.InvariantCulture, out parsedComponent) && parsedComponent >= 0;
+        return uint.TryParse(
+                component,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out parsedComponent
+            )
+            && parsedComponent >= 0;
     }
 
     public static bool operator ==(Version left, Version right) => left.Equals(right);
@@ -167,7 +235,10 @@ public readonly struct Version : IComparable, IComparable<Version?>, IEquatable<
 
     public bool Equals(Version other)
     {
-        return Major == other.Major && Minor == other.Minor && Build == other.Build && Revision == other.Revision;
+        return Major == other.Major
+            && Minor == other.Minor
+            && Build == other.Build
+            && Revision == other.Revision;
     }
 
     public override int GetHashCode() => HashCode.Combine(Major, Minor, Build, Revision);

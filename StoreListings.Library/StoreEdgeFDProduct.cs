@@ -1,6 +1,6 @@
-﻿using StoreListings.Library.Internal;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using StoreListings.Library.Internal;
 
 namespace StoreListings.Library;
 
@@ -30,32 +30,97 @@ public class StoreEdgeFDProduct
     public required string PublisherName { get; set; }
 
     /// <summary>
+    /// The list of screenshots.
+    /// </summary>
+    public required List<Image> Screenshots { get; set; }
+
+    /// <summary>
+    /// The logo image.
+    /// </summary>
+    public required Image Logo { get; set; }
+
+    /// <summary>
+    /// last updated date.
+    /// </summary>
+    public required string? RevisionId { get; set; }
+
+    /// <summary>
+    /// The product rating.
+    /// </summary>
+    public required double? Rating { get; set; }
+
+    /// <summary>
+    /// The number of ratings.
+    /// </summary>
+    public required long? RatingCount { get; set; }
+
+    /// <summary>
+    /// The size of the product.
+    /// </summary>
+    public required long? Size { get; set; }
+
+    /// <summary>
+    /// Indicates if the product is a bundle.
+    /// </summary>
+    public required bool IsBundle { get; set; }
+
+    /// <summary>
     /// The installer type.
     /// </summary>
     public required InstallerType InstallerType { get; set; }
 
     [SetsRequiredMembers]
-    private StoreEdgeFDProduct(string productId, string title, string? description, string publisherName, InstallerType installerType)
+    private StoreEdgeFDProduct(
+        string productId,
+        string title,
+        Image logo,
+        List<Image> screenshots,
+        string? description,
+        string publisherName,
+        string? revisionId,
+        double? rating,
+        long? ratingCount,
+        long? size,
+        InstallerType installerType,
+        bool isBundle
+    )
     {
         ProductId = productId;
         Title = title;
+        Logo = logo;
+        Screenshots = screenshots;
         Description = description;
         PublisherName = publisherName;
+        RevisionId = revisionId;
+        Rating = rating;
+        RatingCount = ratingCount;
+        Size = size;
         InstallerType = installerType;
+        IsBundle = isBundle;
     }
 
-    public static async Task<Result<StoreEdgeFDProduct>> GetProductAsync(string productId, DeviceFamily deviceFamily, Market market, Lang language, CancellationToken cancellationToken = default)
+    public static async Task<Result<StoreEdgeFDProduct>> GetProductAsync(
+        string productId,
+        DeviceFamily deviceFamily,
+        Market market,
+        Lang language,
+        CancellationToken cancellationToken = default
+    )
     {
         HttpClient client = Helpers.GetStoreHttpClient();
 
         try
         {
-            string url = $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/products/{productId}?market={market}&locale={language}-{market}&deviceFamily=Windows.{deviceFamily}";
+            string url =
+                $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/products/{productId}?market={market}&locale={language}-{market}&deviceFamily=Windows.{deviceFamily}";
             using HttpResponseMessage response = await client.GetAsync(url, cancellationToken);
             JsonDocument? json = null;
             try
             {
-                json = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(), cancellationToken: cancellationToken);
+                json = await JsonDocument.ParseAsync(
+                    await response.Content.ReadAsStreamAsync(),
+                    cancellationToken: cancellationToken
+                );
             }
             catch
             {
@@ -69,7 +134,9 @@ public class StoreEdgeFDProduct
             if (!response.IsSuccessStatusCode)
             {
                 // Error.
-                return Result<StoreEdgeFDProduct>.Failure(new Exception(jsondoc.RootElement.GetProperty("message").GetString()));
+                return Result<StoreEdgeFDProduct>.Failure(
+                    new Exception(jsondoc.RootElement.GetProperty("message").GetString())
+                );
             }
 
             JsonElement payloadElement = jsondoc.RootElement.GetProperty("Payload");
@@ -78,17 +145,83 @@ public class StoreEdgeFDProduct
             string publisherName = payloadElement.GetProperty("PublisherName").GetString()!;
             // Future-proofing.
             string prodId = payloadElement.GetProperty("ProductId").GetString()!;
+            List<Image> logos = new List<Image>();
+            List<Image> screenshots = new List<Image>();
+
+            if (payloadElement.TryGetProperty("Images", out JsonElement imagesJson))
+            {
+                foreach (JsonElement image in imagesJson.EnumerateArray())
+                {
+                    string type = image.GetProperty("ImageType").GetString()!;
+                    string bgColor = "Transparent";
+                    if (
+                        image.TryGetProperty("BackgroundColor", out JsonElement color)
+                        && color.GetString()!.StartsWith('#')
+                    )
+                    {
+                        bgColor = color.GetString()!;
+                    }
+                    if (type == "logo" | type == "Poster" | type == "BoxArt")
+                    {
+                        logos.Add(
+                            new Image(
+                                image.GetProperty("Url").GetString()!,
+                                bgColor,
+                                image.GetProperty("Height").GetInt32(),
+                                image.GetProperty("Width").GetInt32()
+                            )
+                        );
+                    }
+                    else if (type == "screenshot")
+                    {
+                        screenshots.Add(
+                            new Image(
+                                image.GetProperty("Url").GetString()!,
+                                bgColor,
+                                image.GetProperty("Height").GetInt32(),
+                                image.GetProperty("Width").GetInt32()
+                            )
+                        );
+                    }
+                }
+            }
+            Image logo = logos.LastOrDefault(
+                img => img.Height == 100 && img.Width == 100,
+                logos[0]
+            );
+
+            double? rating = payloadElement.GetProperty("AverageRating").GetDouble()!;
+            rating = rating != 0.0 ? rating : null;
+
+            long? ratingCount = payloadElement.GetProperty("RatingCount").GetInt64()!;
+            ratingCount = ratingCount != 0 ? ratingCount : null;
+
+            string? revisonId = null;
+            if (payloadElement.TryGetProperty("RevisionId", out JsonElement revisionIdJson))
+            {
+                revisonId = revisionIdJson.GetString();
+            }
+
+            long? size = null;
+            if (payloadElement.TryGetProperty("ApproximateSizeInBytes", out JsonElement sizeJson))
+            {
+                size = sizeJson.GetInt64();
+            }
 
             string? description = null;
-            if (payloadElement.TryGetProperty("ShortDescription", out JsonElement shortDesJson) &&
-                shortDesJson.GetString() is string shortDes &&
-                !string.IsNullOrEmpty(shortDes))
+            if (
+                payloadElement.TryGetProperty("ShortDescription", out JsonElement shortDesJson)
+                && shortDesJson.GetString() is string shortDes
+                && !string.IsNullOrEmpty(shortDes)
+            )
             {
                 description = shortDes;
             }
-            else if (payloadElement.TryGetProperty("Description", out JsonElement desJson) &&
-                desJson.GetString() is string des &&
-                !string.IsNullOrEmpty(des))
+            else if (
+                payloadElement.TryGetProperty("Description", out JsonElement desJson)
+                && desJson.GetString() is string des
+                && !string.IsNullOrEmpty(des)
+            )
             {
                 int index = des.IndexOf("\r\n");
                 if (index == -1)
@@ -96,15 +229,40 @@ public class StoreEdgeFDProduct
                 description = index == -1 ? des : des[..index];
             }
 
-            InstallerType installerType = payloadElement.GetProperty("Installer").GetProperty("Type").GetString()! switch
+            InstallerType installerType = payloadElement
+                .GetProperty("Installer")
+                .GetProperty("Type")
+                .GetString()! switch
             {
                 "WindowsUpdate" => InstallerType.Packaged,
                 "WPM" => InstallerType.Unpackaged,
                 // GamingServices?
-                _ => InstallerType.Unknown
+                _ => InstallerType.Unknown,
             };
 
-            return Result<StoreEdgeFDProduct>.Success(new(prodId, title, description, publisherName, installerType));
+            bool isBundle = false;
+            JsonElement skuElement = payloadElement.GetProperty("Skus").EnumerateArray().First();
+            if (skuElement.TryGetProperty("BundledSkus", out JsonElement bundleElement))
+            {
+                isBundle = true;
+            }
+
+            return Result<StoreEdgeFDProduct>.Success(
+                new(
+                    prodId,
+                    title,
+                    logo,
+                    screenshots,
+                    description,
+                    publisherName,
+                    revisonId,
+                    rating,
+                    ratingCount,
+                    size,
+                    installerType,
+                    isBundle
+                )
+            );
         }
         catch (Exception ex)
         {
@@ -112,18 +270,26 @@ public class StoreEdgeFDProduct
         }
     }
 
-    public async Task<Result<(string InstallerUrl, string InstallerSwitches)>> GetUnpackagedInstall(Market market, Lang language, CancellationToken cancellationToken = default)
+    public async Task<Result<(string InstallerUrl, string InstallerSwitches)>> GetUnpackagedInstall(
+        Market market,
+        Lang language,
+        CancellationToken cancellationToken = default
+    )
     {
         HttpClient client = Helpers.GetStoreHttpClient();
 
         try
         {
-            string url = $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/packageManifests/{ProductId}";
+            string url =
+                $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/packageManifests/{ProductId}";
             using HttpResponseMessage response = await client.GetAsync(url, cancellationToken);
             JsonDocument? json = null;
             try
             {
-                json = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(), cancellationToken: cancellationToken);
+                json = await JsonDocument.ParseAsync(
+                    await response.Content.ReadAsStreamAsync(),
+                    cancellationToken: cancellationToken
+                );
             }
             catch
             {
@@ -132,25 +298,50 @@ public class StoreEdgeFDProduct
             }
             if (!response.IsSuccessStatusCode)
             {
-                return Result<(string InstallerUrl, string InstallerSwitches)>.Failure(new Exception(json!.RootElement.GetProperty("message").GetString()));
+                return Result<(string InstallerUrl, string InstallerSwitches)>.Failure(
+                    new Exception(json!.RootElement.GetProperty("message").GetString())
+                );
             }
-            var installers = json!.RootElement.GetProperty("Data").GetProperty("Versions")[0].GetProperty("Installers");
-            List<(string InstallerUrl, string InstallerSwitches, uint Priority)> installersList = new(2);
+            var installers = json!
+                .RootElement.GetProperty("Data")
+                .GetProperty("Versions")[0]
+                .GetProperty("Installers");
+            List<(string InstallerUrl, string InstallerSwitches, uint Priority)> installersList =
+                new(2);
             for (int i = 0; i < installers.GetArrayLength(); i++)
             {
                 JsonElement installer = installers[i];
                 string locale = installer.GetProperty("InstallerLocale").GetString()!;
                 if (!locale.StartsWith(language.ToString(), StringComparison.OrdinalIgnoreCase))
                     continue;
-                int priority = locale.Equals($"{language}-{market}", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
-                installersList.Add((installer.GetProperty("InstallerUrl").GetString()!, installer.GetProperty("InstallerSwitches").GetProperty("Silent").GetString()!, (uint)priority));
+                int priority = locale.Equals(
+                    $"{language}-{market}",
+                    StringComparison.OrdinalIgnoreCase
+                )
+                    ? 1
+                    : 0;
+                installersList.Add(
+                    (
+                        installer.GetProperty("InstallerUrl").GetString()!,
+                        installer
+                            .GetProperty("InstallerSwitches")
+                            .GetProperty("Silent")
+                            .GetString()!,
+                        (uint)priority
+                    )
+                );
             }
             if (installersList.Count == 0)
             {
-                return Result<(string InstallerUrl, string InstallerSwitches)>.Failure(new Exception("No installer found for the specified language and market."));
+                return Result<(string InstallerUrl, string InstallerSwitches)>.Failure(
+                    new Exception("No installer found for the specified language and market.")
+                );
             }
-            (string InstallerUrl, string InstallerSwitches, uint Priority) highestPriority = installersList.OrderByDescending(f => f.Priority).ElementAt(0);
-            return Result<(string InstallerUrl, string InstallerSwitches)>.Success((highestPriority.InstallerUrl, highestPriority.InstallerSwitches));
+            (string InstallerUrl, string InstallerSwitches, uint Priority) highestPriority =
+                installersList.OrderByDescending(f => f.Priority).ElementAt(0);
+            return Result<(string InstallerUrl, string InstallerSwitches)>.Success(
+                (highestPriority.InstallerUrl, highestPriority.InstallerSwitches)
+            );
         }
         catch (Exception ex)
         {
