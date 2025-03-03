@@ -35,17 +35,17 @@ public class Commands
             List<Card> cards = result.Value.Cards;
             foreach (var card in cards)
             {
-                WriteField("ProductId", card.ProductId);
+                WriteField("Product ID", card.ProductId);
                 WriteField("Title", card.Title);
                 if (card.DisplayPrice != null)
                 {
-                    WriteField("DisplayPrice", card.DisplayPrice);
+                    WriteField("Display price", card.DisplayPrice);
                 }
                 if (card.AverageRating != null)
                 {
-                    WriteField("AverageRating", card.AverageRating.ToString());
+                    WriteField("Average rating", card.AverageRating.ToString());
                 }
-                WriteField("ImageUrl", card.Image.Url);
+                WriteField("Image", card.Image.Url);
             }
         }
         else
@@ -83,17 +83,17 @@ public class Commands
             List<Card> cards = result.Value.Cards;
             foreach (var card in cards)
             {
-                WriteField("ProductId", card.ProductId);
+                WriteField("Product ID", card.ProductId);
                 WriteField("Title", card.Title);
                 if (card.DisplayPrice != null)
                 {
-                    WriteField("DisplayPrice", card.DisplayPrice);
+                    WriteField("Display price", card.DisplayPrice);
                 }
                 if (card.AverageRating != null)
                 {
-                    WriteField("AverageRating", card.AverageRating.ToString());
+                    WriteField("Average rating", card.AverageRating.ToString());
                 }
-                WriteField("ImageUrl", card.Image.Url);
+                WriteField("Image", card.Image.Url);
             }
         }
         else
@@ -131,17 +131,17 @@ public class Commands
             List<Card> cards = result.Value.Cards;
             foreach (var card in cards)
             {
-                WriteField("ProductId", card.ProductId);
+                WriteField("Product ID", card.ProductId);
                 WriteField("Title", card.Title);
                 if (card.DisplayPrice != null)
                 {
-                    WriteField("DisplayPrice", card.DisplayPrice);
+                    WriteField("Display price", card.DisplayPrice);
                 }
                 if (card.AverageRating != null)
                 {
-                    WriteField("AverageRating", card.AverageRating.ToString());
+                    WriteField("Average rating", card.AverageRating.ToString());
                 }
-                WriteField("ImageUrl", card.Image.Url);
+                WriteField("Image", card.Image.Url);
             }
         }
         else
@@ -179,17 +179,17 @@ public class Commands
             List<Card> cards = result.Value.Cards;
             foreach (var card in cards)
             {
-                WriteField("ProductId", card.ProductId);
+                WriteField("Product ID", card.ProductId);
                 WriteField("Title", card.Title);
                 if (card.DisplayPrice != null)
                 {
-                    WriteField("DisplayPrice", card.DisplayPrice);
+                    WriteField("Display price", card.DisplayPrice);
                 }
                 if (card.AverageRating != null)
                 {
-                    WriteField("AverageRating", card.AverageRating.ToString());
+                    WriteField("Average rating", card.AverageRating.ToString());
                 }
-                WriteField("ImageUrl", card.Image.Url);
+                WriteField("Image", card.Image.Url);
             }
         }
         else
@@ -233,10 +233,10 @@ public class Commands
             {
                 Console.WriteLine(screenshot.Url);
             }
-            WriteField("RevisionId", product.RevisionId);
-            WriteField("rating", product.Rating.ToString());
-            WriteField("ratingCount", product.RatingCount.ToString());
-            WriteField("size", product.Size.ToString());
+            WriteField("Revision ID", product.RevisionId);
+            WriteField("Average rating", product.Rating.ToString());
+            WriteField("Rating count", product.RatingCount.ToString());
+            WriteField("Size", product.Size.ToString());
             if (product.Description is not null)
                 WriteField("Description", product.Description);
             WriteField("Publisher", product.PublisherName);
