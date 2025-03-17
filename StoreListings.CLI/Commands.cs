@@ -237,6 +237,8 @@ public class Commands
             WriteField("Average rating", product.Rating.ToString());
             WriteField("Rating count", product.RatingCount.ToString());
             WriteField("Size", product.Size.ToString());
+            if (product.ShortDescription is not null)
+                WriteField("Short Description", product.ShortDescription);
             if (product.Description is not null)
                 WriteField("Description", product.Description);
             WriteField("Publisher", product.PublisherName);

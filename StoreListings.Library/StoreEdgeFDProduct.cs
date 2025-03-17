@@ -20,7 +20,12 @@ public class StoreEdgeFDProduct
     public required string Title { get; set; }
 
     /// <summary>
-    /// The listing description, if available.
+    /// The short listing description, if available.
+    /// </summary>
+    public string? ShortDescription { get; set; }
+
+    /// <summary>
+    /// The full listing description, if available.
     /// </summary>
     public string? Description { get; set; }
 
@@ -75,6 +80,7 @@ public class StoreEdgeFDProduct
         string title,
         Image logo,
         List<Image> screenshots,
+        string? shortDescription,
         string? description,
         string publisherName,
         string? revisionId,
@@ -89,6 +95,7 @@ public class StoreEdgeFDProduct
         Title = title;
         Logo = logo;
         Screenshots = screenshots;
+        ShortDescription = shortDescription;
         Description = description;
         PublisherName = publisherName;
         RevisionId = revisionId;
@@ -208,25 +215,43 @@ public class StoreEdgeFDProduct
                 size = sizeJson.GetInt64();
             }
 
-            string? description = null;
+            string? shortDescription = null;
             if (
                 payloadElement.TryGetProperty("ShortDescription", out JsonElement shortDesJson)
                 && shortDesJson.GetString() is string shortDes
                 && !string.IsNullOrEmpty(shortDes)
             )
             {
-                description = shortDes;
+                shortDescription = shortDes;
             }
-            else if (
+
+            string? description = null;
+            if (
                 payloadElement.TryGetProperty("Description", out JsonElement desJson)
                 && desJson.GetString() is string des
                 && !string.IsNullOrEmpty(des)
             )
             {
-                int index = des.IndexOf("\r\n");
-                if (index == -1)
-                    index = des.IndexOf('\n');
-                description = index == -1 ? des : des[..index];
+                if (shortDescription is null)
+                {
+                    int newlineIndex = des.IndexOf("\r\n");
+                    if (newlineIndex == -1)
+                        newlineIndex = des.IndexOf('\n');
+
+                    int periodIndex = des.IndexOf('.');
+
+                    if (periodIndex != -1)
+                    {
+                        // period found
+                        shortDescription = des[..(periodIndex + 1)];
+                    }
+                    else if (newlineIndex != -1)
+                    {
+                        // Newline found, truncate at newline
+                        shortDescription = des[..newlineIndex];
+                    }
+                }
+                description = des;
             }
 
             InstallerType installerType = payloadElement
@@ -253,6 +278,7 @@ public class StoreEdgeFDProduct
                     title,
                     logo,
                     screenshots,
+                    shortDescription,
                     description,
                     publisherName,
                     revisonId,
