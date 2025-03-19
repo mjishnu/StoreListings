@@ -1,5 +1,8 @@
 ﻿namespace StoreListings.Library;
 
+/// <summary>
+/// Represents categories used for recommendations.
+/// </summary>
 public enum Category
 {
     TopFree,
@@ -9,6 +12,41 @@ public enum Category
     NewAndRising,
     Bestselling,
     Mostpopular,
+}
+
+/// <summary>
+/// Defines media types that can be specified when searching.
+/// </summary>
+public enum MediaTypeSearch
+{
+    all,
+    apps,
+    games,
+    devices,
+    passes,
+    fonts,
+    themes,
+}
+
+/// <summary>
+/// Defines media types that can be specified when requesting recommendations.
+/// </summary>
+public enum MediaTypeRecommendation
+{
+    all,
+    apps,
+    games,
+}
+
+/// <summary>
+/// Specifies price filtering options for search queries.
+/// </summary>
+public enum PriceType
+{
+    All,
+    Free,
+    Paid,
+    Sale,
 }
 
 /// <summary>

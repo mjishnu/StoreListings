@@ -22,15 +22,24 @@ public class StoreEdgeFDQuery
         DeviceFamily deviceFamily,
         Market market,
         Lang language,
+        int skipItems = 0,
+        int pageSize = 20,
+        MediaTypeRecommendation mediaType = MediaTypeRecommendation.all,
         CancellationToken cancellationToken = default
     )
     {
         HttpClient client = Helpers.GetStoreHttpClient();
 
+        var mediaTypeString = mediaType.ToString();
+        if (mediaType == MediaTypeRecommendation.all)
+        {
+            mediaTypeString = "";
+        }
+
         try
         {
             string url =
-                $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/recommendations/collections/{category}?market={market}&locale={language}-{market}&deviceFamily=Windows.{deviceFamily}";
+                $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/recommendations/collections/{category}?market={market}&locale={language}-{market}&deviceFamily=Windows.{deviceFamily}&mediaType={mediaTypeString}&pageSize={pageSize}&skipItems={skipItems}";
             using HttpResponseMessage response = await client.GetAsync(url, cancellationToken);
             JsonDocument? json = null;
             try
@@ -77,15 +86,28 @@ public class StoreEdgeFDQuery
         DeviceFamily deviceFamily,
         Market market,
         Lang language,
+        int skipItems = 0,
+        MediaTypeSearch mediaType = MediaTypeSearch.all,
+        PriceType priceType = PriceType.All,
         CancellationToken cancellationToken = default
     )
     {
         HttpClient client = Helpers.GetStoreHttpClient();
 
+        string filters = $"PriceType%3d{priceType}";
+        if (priceType == PriceType.All)
+        {
+            filters = "";
+        }
+
+        // cursor is a base64 url encoded string of length 35
+        var randomString = Helpers.GenerateRandomString(21 - skipItems.ToString().Length);
+        var base64string = Helpers.ToBase64Url($"o={skipItems}&s={randomString}");
+
         try
         {
             string url =
-                $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/pages/searchResults?query={query}&market={market}&locale={language}-{market}&deviceFamily=Windows.{deviceFamily}";
+                $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/search?query={query}&market={market}&locale={language}-{market}&deviceFamily=Windows.{deviceFamily}&mediaType={mediaType}&filters={filters}&cursor={base64string}%3d";
             using HttpResponseMessage response = await client.GetAsync(url, cancellationToken);
             JsonDocument? json = null;
             try
@@ -109,10 +131,7 @@ public class StoreEdgeFDQuery
                 );
             }
 
-            JsonElement payloadElement = jsondoc
-                .RootElement.EnumerateArray()
-                .Last()
-                .GetProperty("Payload");
+            JsonElement payloadElement = jsondoc.RootElement.GetProperty("Payload");
 
             if (
                 payloadElement.TryGetProperty("SearchResults", out JsonElement searchElement)

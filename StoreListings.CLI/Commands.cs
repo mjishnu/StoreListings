@@ -27,7 +27,7 @@ public class Commands
             deviceFamily,
             market,
             language,
-            cancellationToken
+            cancellationToken: cancellationToken
         );
         HideProgressBar();
         if (result.IsSuccess)
@@ -123,7 +123,7 @@ public class Commands
             deviceFamily,
             market,
             language,
-            cancellationToken
+            cancellationToken: cancellationToken
         );
         HideProgressBar();
         if (result.IsSuccess)
@@ -166,7 +166,7 @@ public class Commands
     )
     {
         WriteLoadingProgressBar();
-        Result<StoreEdgeFDQuery> result = await StoreEdgeFDQuery.GetSearchProduct(
+        Result<StoreEdgeFDQuery> result = await StoreEdgeFDQuery.GetSearchSuggestion(
             query,
             deviceFamily,
             market,

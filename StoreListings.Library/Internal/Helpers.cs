@@ -1,5 +1,6 @@
 ﻿using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 
 namespace StoreListings.Library.Internal;
 
@@ -17,7 +18,8 @@ internal static class Helpers
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             _handler = new HttpClientHandler();
-            _handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+            _handler.ServerCertificateCustomValidationCallback =
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
             _storeHttpClient = new HttpClient(_handler);
         }
         else
@@ -26,8 +28,12 @@ internal static class Helpers
         }
 
         _storeHttpClient.DefaultRequestHeaders.Accept.Clear();
-        _storeHttpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("*/*"));
-        _storeHttpClient.DefaultRequestHeaders.AcceptLanguage.Add(new StringWithQualityHeaderValue("en-US"));
+        _storeHttpClient.DefaultRequestHeaders.Accept.Add(
+            new MediaTypeWithQualityHeaderValue("*/*")
+        );
+        _storeHttpClient.DefaultRequestHeaders.AcceptLanguage.Add(
+            new StringWithQualityHeaderValue("en-US")
+        );
         _storeHttpClient.DefaultRequestHeaders.Add("User-Agent", "WindowsStore/22106.1401.2.0");
 
         _storeHttpClient.DefaultRequestHeaders.Add("MS-CV", CorrelationVector.Increment());
@@ -44,7 +50,8 @@ internal static class Helpers
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             _handler = new HttpClientHandler();
-            _handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+            _handler.ServerCertificateCustomValidationCallback =
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
             _fe3HttpClient = new HttpClient(_handler);
         }
         else
@@ -52,8 +59,34 @@ internal static class Helpers
             _fe3HttpClient = new HttpClient();
         }
 
-        _fe3HttpClient.DefaultRequestHeaders.Add("User-Agent", "Windows-Update-Agent/10.0.10011.16384 Client-Protocol/2.1");
+        _fe3HttpClient.DefaultRequestHeaders.Add(
+            "User-Agent",
+            "Windows-Update-Agent/10.0.10011.16384 Client-Protocol/2.1"
+        );
         _fe3HttpClient.DefaultRequestHeaders.Connection.Add("keep-alive");
         return _fe3HttpClient;
+    }
+
+    public static string ToBase64Url(string input)
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes(input);
+        var base64 = Convert.ToBase64String(bytes);
+        return base64.Replace('+', '-').Replace('/', '_').Replace("=", "");
+    }
+
+    public static string GenerateRandomString(int length)
+    {
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        var stringChars = new char[length];
+
+        var randomBytes = new byte[length];
+        RandomNumberGenerator.Fill(randomBytes);
+
+        for (int i = 0; i < stringChars.Length; i++)
+        {
+            stringChars[i] = chars[randomBytes[i] % chars.Length];
+        }
+
+        return new string(stringChars);
     }
 }
