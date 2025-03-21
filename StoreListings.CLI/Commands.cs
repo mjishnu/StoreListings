@@ -166,7 +166,7 @@ public class Commands
     )
     {
         WriteLoadingProgressBar();
-        Result<StoreEdgeFDQuery> result = await StoreEdgeFDQuery.GetSearchSuggestion(
+        Result<StoreEdgeFDSuggestions> result = await StoreEdgeFDSuggestions.GetSearchSuggestion(
             query,
             deviceFamily,
             market,
@@ -177,6 +177,8 @@ public class Commands
         if (result.IsSuccess)
         {
             List<Card> cards = result.Value.Cards;
+            List<string> suggestions = result.Value.Suggestions;
+            WriteField("Suggestions", string.Join(", ", suggestions));
             foreach (var card in cards)
             {
                 WriteField("Product ID", card.ProductId);

@@ -8,9 +8,9 @@ public enum Category
     TopFree,
     TopPaid,
     BestRated,
-    Specials,
+    Deal,
     NewAndRising,
-    Bestselling,
+    TopGrossing,
     Mostpopular,
 }
 

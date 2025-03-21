@@ -1,6 +1,7 @@
 ﻿using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.Text.Json;
 
 namespace StoreListings.Library.Internal;
 
@@ -88,5 +89,59 @@ internal static class Helpers
         }
 
         return new string(stringChars);
+    }
+
+    public static List<Card> GetCards(JsonElement cardsElement)
+    {
+        return cardsElement
+            .EnumerateArray()
+            .Select(card =>
+            {
+                List<JsonElement> images = card.GetProperty("Images").EnumerateArray().ToList();
+                IEnumerable<JsonElement> filteredImages = images.Where(img =>
+                    img.GetProperty("Height").GetInt32() == 300
+                    && img.GetProperty("Width").GetInt32() == 300
+                );
+                JsonElement image = filteredImages.Any() ? filteredImages.Last() : images[0];
+                string imageBackgroundColor = "Transparent";
+                if (
+                    image.TryGetProperty("BackgroundColor", out JsonElement color)
+                    && color.GetString()!.StartsWith('#')
+                )
+                {
+                    imageBackgroundColor = color.GetString()!;
+                }
+                string? displayPrice;
+                if (image.TryGetProperty("DisplayPrice", out JsonElement price))
+                {
+                    displayPrice = price.GetString()!;
+                }
+                else
+                {
+                    displayPrice = null;
+                }
+                double? averageRating = null;
+                if (
+                    card.TryGetProperty("AverageRating", out JsonElement rating)
+                    && rating.GetDouble() != 0.0
+                )
+                {
+                    averageRating = rating.GetDouble();
+                }
+
+                return new Card(
+                    card.GetProperty("ProductId").GetString()!,
+                    card.GetProperty("Title").GetString()!,
+                    displayPrice,
+                    averageRating,
+                    new Image(
+                        image.GetProperty("Url").GetString()!,
+                        imageBackgroundColor,
+                        image.GetProperty("Height").GetInt32(),
+                        image.GetProperty("Width").GetInt32()
+                    )
+                );
+            })
+            .ToList();
     }
 }
