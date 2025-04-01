@@ -19,13 +19,13 @@ public enum Category
 /// </summary>
 public enum MediaTypeSearch
 {
-    all,
-    apps,
-    games,
-    devices,
-    passes,
-    fonts,
-    themes,
+    All,
+    Apps,
+    Games,
+    Devices,
+    Passes,
+    Fonts,
+    Themes,
 }
 
 /// <summary>
@@ -33,9 +33,9 @@ public enum MediaTypeSearch
 /// </summary>
 public enum MediaTypeRecommendation
 {
-    all,
-    apps,
-    games,
+    All,
+    Apps,
+    Games,
 }
 
 /// <summary>

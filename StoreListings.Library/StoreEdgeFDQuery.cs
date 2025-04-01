@@ -22,16 +22,16 @@ public class StoreEdgeFDQuery
         DeviceFamily deviceFamily,
         Market market,
         Lang language,
+        MediaTypeRecommendation mediaType = MediaTypeRecommendation.All,
         int skipItems = 0,
         int pageSize = 20,
-        MediaTypeRecommendation mediaType = MediaTypeRecommendation.all,
         CancellationToken cancellationToken = default
     )
     {
         HttpClient client = Helpers.GetStoreHttpClient();
 
         var mediaTypeString = mediaType.ToString();
-        if (mediaType == MediaTypeRecommendation.all)
+        if (mediaType == MediaTypeRecommendation.All)
         {
             mediaTypeString = "";
         }
@@ -87,7 +87,7 @@ public class StoreEdgeFDQuery
         Market market,
         Lang language,
         int skipItems = 0,
-        MediaTypeSearch mediaType = MediaTypeSearch.all,
+        MediaTypeSearch mediaType = MediaTypeSearch.All,
         PriceType priceType = PriceType.All,
         CancellationToken cancellationToken = default
     )
