@@ -1,5 +1,7 @@
 ﻿using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Text.Json;
 
 namespace StoreListings.Library.Internal;
 
@@ -55,5 +57,82 @@ internal static class Helpers
         _fe3HttpClient.DefaultRequestHeaders.Add("User-Agent", "Windows-Update-Agent/10.0.10011.16384 Client-Protocol/2.1");
         _fe3HttpClient.DefaultRequestHeaders.Connection.Add("keep-alive");
         return _fe3HttpClient;
+    }
+
+    public static string ToBase64Url(string input)
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes(input);
+        var base64 = Convert.ToBase64String(bytes);
+        return base64.Replace('+', '-').Replace('/', '_').Replace("=", "");
+    }
+
+    public static string GenerateRandomString(int length)
+    {
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        var stringChars = new char[length];
+
+        var randomBytes = new byte[length];
+        RandomNumberGenerator.Fill(randomBytes);
+
+        for (int i = 0; i < stringChars.Length; i++)
+        {
+            stringChars[i] = chars[randomBytes[i] % chars.Length];
+        }
+
+        return new string(stringChars);
+    }
+
+    public static List<Card> GetCards(JsonElement cardsElement)
+    {
+        return cardsElement
+            .EnumerateArray()
+            .Select(card =>
+            {
+                List<JsonElement> images = card.GetProperty("Images").EnumerateArray().ToList();
+                IEnumerable<JsonElement> filteredImages = images.Where(img =>
+                    img.GetProperty("Height").GetInt32() == 300
+                    && img.GetProperty("Width").GetInt32() == 300
+                );
+                JsonElement image = filteredImages.Any() ? filteredImages.Last() : images[0];
+                string imageBackgroundColor = "Transparent";
+                if (
+                    image.TryGetProperty("BackgroundColor", out JsonElement color)
+                    && color.GetString()!.StartsWith('#')
+                )
+                {
+                    imageBackgroundColor = color.GetString()!;
+                }
+                string? displayPrice;
+                if (image.TryGetProperty("DisplayPrice", out JsonElement price))
+                {
+                    displayPrice = price.GetString()!;
+                }
+                else
+                {
+                    displayPrice = null;
+                }
+                double? averageRating = null;
+                if (
+                    card.TryGetProperty("AverageRating", out JsonElement rating)
+                    && rating.GetDouble() != 0.0
+                )
+                {
+                    averageRating = rating.GetDouble();
+                }
+
+                return new Card(
+                    card.GetProperty("ProductId").GetString()!,
+                    card.GetProperty("Title").GetString()!,
+                    displayPrice,
+                    averageRating,
+                    new Image(
+                        image.GetProperty("Url").GetString()!,
+                        imageBackgroundColor,
+                        image.GetProperty("Height").GetInt32(),
+                        image.GetProperty("Width").GetInt32()
+                    )
+                );
+            })
+            .ToList();
     }
 }

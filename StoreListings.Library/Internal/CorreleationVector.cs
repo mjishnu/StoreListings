@@ -1,4 +1,4 @@
-﻿namespace StoreListings.Library.Internal;
+namespace StoreListings.Library.Internal;
 
 internal static class CorrelationVector
 {

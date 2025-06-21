@@ -27,7 +27,7 @@ public class Commands
             deviceFamily,
             market,
             language,
-            cancellationToken
+            cancellationToken: cancellationToken
         );
         HideProgressBar();
         if (result.IsSuccess)
@@ -123,7 +123,7 @@ public class Commands
             deviceFamily,
             market,
             language,
-            cancellationToken
+            cancellationToken: cancellationToken
         );
         HideProgressBar();
         if (result.IsSuccess)
@@ -166,7 +166,7 @@ public class Commands
     )
     {
         WriteLoadingProgressBar();
-        Result<StoreEdgeFDQuery> result = await StoreEdgeFDQuery.GetSearchProduct(
+        Result<StoreEdgeFDSuggestions> result = await StoreEdgeFDSuggestions.GetSearchSuggestion(
             query,
             deviceFamily,
             market,
@@ -177,6 +177,8 @@ public class Commands
         if (result.IsSuccess)
         {
             List<Card> cards = result.Value.Cards;
+            List<string> suggestions = result.Value.Suggestions;
+            WriteField("Suggestions", string.Join(", ", suggestions));
             foreach (var card in cards)
             {
                 WriteField("Product ID", card.ProductId);
@@ -237,6 +239,8 @@ public class Commands
             WriteField("Average rating", product.Rating.ToString());
             WriteField("Rating count", product.RatingCount.ToString());
             WriteField("Size", product.Size.ToString());
+            if (product.ShortDescription is not null)
+                WriteField("Short Description", product.ShortDescription);
             if (product.Description is not null)
                 WriteField("Description", product.Description);
             WriteField("Publisher", product.PublisherName);

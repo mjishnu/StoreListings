@@ -2,7 +2,7 @@
   "profiles": {
     "StoreListings.CLI": {
       "commandName": "Project",
-      "commandLineArgs": "query-product 9wzdncrfjbh4"
+      "commandLineArgs": "query-suggestions netfl"
     }
   }
 }
