@@ -1,12 +1,11 @@
-﻿namespace StoreListings.Library.Internal;
+namespace StoreListings.Library.Internal;
 
 internal static class CorrelationVector
 {
     private static string baseVector;
     private static int currentVector;
 
-    private const string base64CharSet =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    private const string base64CharSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     private const int id0Length = 16;
 
     internal enum Settings
@@ -32,7 +31,7 @@ internal static class CorrelationVector
         CLLSETTINGSURL,
         HOSTSETTINGSETAG,
         CLLSETTINGSETAG,
-        VORTEXPRODURL,
+        VORTEXPRODURL
     }
 
     static CorrelationVector()
@@ -51,8 +50,7 @@ internal static class CorrelationVector
     {
         int vectorSize = (int)Math.Floor(Math.Log10(currentVector) + 1);
 
-        return baseVector.Length + 1 + vectorSize + 1 + 1
-            <= getCllSettingsAsInt(Settings.MAXCORRELATIONVECTORLENGTH);
+        return baseVector.Length + 1 + vectorSize + 1 + 1 <= getCllSettingsAsInt(Settings.MAXCORRELATIONVECTORLENGTH);
     }
 
     private static bool CanIncrement(int newVector)
@@ -65,8 +63,7 @@ internal static class CorrelationVector
         int vectorSize = (int)double.Floor(double.Log10(newVector) + 1);
 
         // Get the length of the existing string + length of the new extension + the length of the dot
-        return baseVector.Length + vectorSize + 1
-            <= getCllSettingsAsInt(Settings.MAXCORRELATIONVECTORLENGTH);
+        return baseVector.Length + vectorSize + 1 <= getCllSettingsAsInt(Settings.MAXCORRELATIONVECTORLENGTH);
     }
 
     internal static string Extend()
@@ -111,16 +108,12 @@ internal static class CorrelationVector
     private static string SeedCorrelationVector()
     {
 #pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
-        return string.Create<object>(
-            id0Length,
-            null,
-            (span, _) =>
+        return string.Create<object>(id0Length, null, (span, _) =>
 #pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
-            {
-                for (int i = 0; i < id0Length; i++)
-                    span[i] = base64CharSet[Random.Shared.Next(base64CharSet.Length)];
-            }
-        );
+        {
+            for (int i = 0; i < id0Length; i++)
+                span[i] = base64CharSet[Random.Shared.Next(base64CharSet.Length)];
+        });
     }
 
     internal static void SetValue(string vector)
