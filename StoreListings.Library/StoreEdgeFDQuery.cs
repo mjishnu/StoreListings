@@ -22,7 +22,7 @@ public class StoreEdgeFDQuery
         DeviceFamily deviceFamily,
         Market market,
         Lang language,
-        MediaTypeRecommendation mediaType = MediaTypeRecommendation.All,
+        MediaTypeRecommendation mediaType = MediaTypeRecommendation.Apps,
         int skipItems = 0,
         int pageSize = 20,
         CancellationToken cancellationToken = default
@@ -31,10 +31,6 @@ public class StoreEdgeFDQuery
         HttpClient client = Helpers.GetStoreHttpClient();
 
         var mediaTypeString = mediaType.ToString();
-        if (mediaType == MediaTypeRecommendation.All)
-        {
-            mediaTypeString = "";
-        }
 
         try
         {

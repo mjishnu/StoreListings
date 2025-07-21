@@ -33,7 +33,6 @@ public enum MediaTypeSearch
 /// </summary>
 public enum MediaTypeRecommendation
 {
-    All,
     Apps,
     Games,
 }
