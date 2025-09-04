@@ -34,29 +34,40 @@ public class StoreEdgeFDSuggestions
             string url =
                 $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/autosuggest?prefix={query}&market={market}&locale={language}-{market}&deviceFamily=Windows.{deviceFamily}";
             using HttpResponseMessage response = await client.GetAsync(url, cancellationToken);
+
+            response.EnsureSuccessStatusCode();
+
             JsonDocument? json = null;
             try
             {
                 json = await JsonDocument.ParseAsync(
-                    await response.Content.ReadAsStreamAsync(),
+                    await response.Content.ReadAsStreamAsync(cancellationToken),
                     cancellationToken: cancellationToken
                 );
             }
-            catch
-            {
-                response.EnsureSuccessStatusCode();
-            }
-
-            using JsonDocument jsondoc = json!;
-
-            if (!response.IsSuccessStatusCode)
+            catch (Exception parseEx)
             {
                 return Result<StoreEdgeFDSuggestions>.Failure(
-                    new Exception(jsondoc.RootElement.GetProperty("message").GetString())
+                    new Exception($"Failed to parse JSON response: {parseEx.Message}", parseEx)
                 );
             }
 
-            JsonElement payloadElement = jsondoc.RootElement.GetProperty("Payload");
+            if (json == null)
+            {
+                return Result<StoreEdgeFDSuggestions>.Failure(
+                    new Exception("JSON parsing returned null")
+                );
+            }
+
+            using JsonDocument jsondoc = json;
+
+            if (!jsondoc.RootElement.TryGetProperty("Payload", out JsonElement payloadElement))
+            {
+                return Result<StoreEdgeFDSuggestions>.Failure(
+                    new Exception("Response does not contain 'Payload' property")
+                );
+            }
+
             if (
                 (
                     payloadElement.TryGetProperty(
@@ -83,6 +94,10 @@ public class StoreEdgeFDSuggestions
                 );
             }
             return Result<StoreEdgeFDSuggestions>.Success(new StoreEdgeFDSuggestions([], []));
+        }
+        catch (OperationCanceledException)
+        {
+            return Result<StoreEdgeFDSuggestions>.Failure(new Exception("Operation was cancelled"));
         }
         catch (Exception ex)
         {
