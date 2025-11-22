@@ -7,11 +7,9 @@ public enum Category
 {
     TopFree,
     TopPaid,
-    BestRated,
+    TopTrending,
     Deal,
-    NewAndRising,
     TopGrossing,
-    Mostpopular,
 }
 
 /// <summary>
