@@ -296,7 +296,9 @@ public class StoreEdgeFDProduct
         }
     }
 
-    public async Task<Result<(string InstallerUrl, string InstallerSwitches)>> GetUnpackagedInstall(
+    public async Task<
+        Result<(string InstallerUrl, string FileName, string InstallerSwitches)>
+    > GetUnpackagedInstall(
         Market market,
         Lang language,
         CancellationToken cancellationToken = default
@@ -324,16 +326,29 @@ public class StoreEdgeFDProduct
             }
             if (!response.IsSuccessStatusCode)
             {
-                return Result<(string InstallerUrl, string InstallerSwitches)>.Failure(
-                    new Exception(json!.RootElement.GetProperty("message").GetString())
-                );
+                return Result<(
+                    string InstallerUrl,
+                    string FileName,
+                    string InstallerSwitches
+                )>.Failure(new Exception(json!.RootElement.GetProperty("message").GetString()));
             }
-            var installers = json!
+
+            JsonElement versionElement = json!
                 .RootElement.GetProperty("Data")
-                .GetProperty("Versions")[0]
-                .GetProperty("Installers");
-            List<(string InstallerUrl, string InstallerSwitches, uint Priority)> installersList =
-                new(2);
+                .GetProperty("Versions")[0];
+
+            var installers = versionElement.GetProperty("Installers");
+            string packageName = versionElement
+                .GetProperty("DefaultLocale")
+                .GetProperty("PackageName")
+                .GetString()!;
+
+            List<(
+                string InstallerUrl,
+                string InstallerSwitches,
+                string InstallerType,
+                uint Priority
+            )> installersList = new(2);
             for (int i = 0; i < installers.GetArrayLength(); i++)
             {
                 JsonElement installer = installers[i];
@@ -353,25 +368,39 @@ public class StoreEdgeFDProduct
                             .GetProperty("InstallerSwitches")
                             .GetProperty("Silent")
                             .GetString()!,
+                        installer.GetProperty("InstallerType").GetString()!,
                         (uint)priority
                     )
                 );
             }
             if (installersList.Count == 0)
             {
-                return Result<(string InstallerUrl, string InstallerSwitches)>.Failure(
+                return Result<(
+                    string InstallerUrl,
+                    string FileName,
+                    string InstallerSwitches
+                )>.Failure(
                     new Exception("No installer found for the specified language and market.")
                 );
             }
-            (string InstallerUrl, string InstallerSwitches, uint Priority) highestPriority =
-                installersList.OrderByDescending(f => f.Priority).ElementAt(0);
-            return Result<(string InstallerUrl, string InstallerSwitches)>.Success(
-                (highestPriority.InstallerUrl, highestPriority.InstallerSwitches)
+            (
+                string InstallerUrl,
+                string InstallerSwitches,
+                string InstallerType,
+                uint Priority
+            ) highestPriority = installersList.OrderByDescending(f => f.Priority).ElementAt(0);
+
+            string fileName = $"{packageName}.{highestPriority.InstallerType.ToLowerInvariant()}";
+
+            return Result<(string InstallerUrl, string FileName, string InstallerSwitches)>.Success(
+                (highestPriority.InstallerUrl, fileName, highestPriority.InstallerSwitches)
             );
         }
         catch (Exception ex)
         {
-            return Result<(string InstallerUrl, string InstallerSwitches)>.Failure(ex);
+            return Result<(string InstallerUrl, string FileName, string InstallerSwitches)>.Failure(
+                ex
+            );
         }
     }
 }

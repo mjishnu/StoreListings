@@ -517,14 +517,26 @@ public class Commands
                 break;
 
             case InstallerType.Unpackaged:
-                Result<(string InstallerUrl, string InstallerSwitches)> unpackagedResult =
-                    await product.GetUnpackagedInstall(market, language, cancellationToken);
+                Result<(
+                    string InstallerUrl,
+                    string FileName,
+                    string InstallerSwitches
+                )> unpackagedResult = await product.GetUnpackagedInstall(
+                    market,
+                    language,
+                    cancellationToken
+                );
                 if (!unpackagedResult.IsSuccess)
                 {
                     WriteError(unpackagedResult.Exception, "getting unpackaged install");
                     return;
                 }
 
+                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.WriteLine("Installer file name:");
+                Console.ResetColor();
+                Console.WriteLine(unpackagedResult.Value.FileName);
+                Console.WriteLine();
                 Console.ForegroundColor = ConsoleColor.Blue;
                 Console.WriteLine("Installer URL:");
                 Console.ResetColor();
