@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using System.Xml.Linq;
 using StoreListings.Library.Internal;
@@ -53,6 +54,19 @@ public static partial class FE3Handler
 
         public required Cookie NewCookie { get; set; }
     }
+
+    public static DeviceFamily ConvertFE3PlatformToDeviceFamily(long platform) =>
+        platform switch
+        {
+            0 => DeviceFamily.Universal,
+            3 => DeviceFamily.Desktop,
+            4 => DeviceFamily.Mobile,
+            5 => DeviceFamily.Xbox,
+            6 => DeviceFamily.Team,
+            10 => DeviceFamily.Holographic,
+            16 => DeviceFamily.Core,
+            _ => DeviceFamily.Unknown,
+        };
 
     public static async Task<Result<Cookie>> GetCookieAsync(
         CancellationToken cancellationToken = default
@@ -152,7 +166,8 @@ public static partial class FE3Handler
         string flightingBranchName,
         Version OSVersion,
         DeviceFamily deviceFamily,
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken = default,
+        OSArch osArchitecture = OSArch.AMD64
     )
     {
         try
@@ -177,8 +192,10 @@ public static partial class FE3Handler
                     OSVersion,
                     deviceFamily,
                     FoundUpdateIDs,
-                    FoundUpdateIDs
+                    FoundUpdateIDs,
+                    osArchitecture
                 );
+
                 using HttpResponseMessage response = await client.PostAsync(
                     "https://fe3cr.delivery.mp.microsoft.com/ClientWebService/client.asmx",
                     new StringContent(content, Encoding.UTF8, "application/soap+xml"),
@@ -458,7 +475,8 @@ public static partial class FE3Handler
         Version OSVersion,
         DeviceFamily deviceFamily,
         IEnumerable<string> additionalInstalledNonLeafUpdateIDs,
-        IEnumerable<string> additionalOtherCachedUpdateIDs
+        IEnumerable<string> additionalOtherCachedUpdateIDs,
+        OSArch osArch = OSArch.AMD64
     )
     {
         int flightEnabled = flightRing == "Retail" ? 0 : 1;
@@ -471,6 +489,7 @@ public static partial class FE3Handler
             DeviceFamily.Core => "FactoryOS",
             _ => "Client",
         };
+
         string cached = string.Join(
             Environment.NewLine,
             additionalOtherCachedUpdateIDs.Select(x => $"<int>{x}</int>")
@@ -479,6 +498,7 @@ public static partial class FE3Handler
             Environment.NewLine,
             additionalInstalledNonLeafUpdateIDs.Select(x => $"<int>{x}</int>")
         );
+
         return $"""
             <s:Envelope xmlns:a="http://www.w3.org/2005/08/addressing" xmlns:s="http://www.w3.org/2003/05/soap-envelope">
               <s:Header>
@@ -611,7 +631,7 @@ public static partial class FE3Handler
                     </ClientPreferredLanguages>
                     <ProductsParameters>
                       <SyncCurrentVersionOnly>false</SyncCurrentVersionOnly>
-                      <DeviceAttributes>BranchReadinessLevel=CB;CurrentBranch={currentBranch};OEMModel=Virtual Machine;FlightRing={flightRing};AttrDataVer=21;SystemManufacturer=Microsoft Corporation;InstallLanguage={lang}-{market};OSUILocale={lang}-{market};InstallationType={installType};FlightingBranchName={flightingBranchName};FirmwareVersion=Hyper-V UEFI Release v2.5;SystemProductName=Virtual Machine;OSSkuId=48;FlightContent=Mainline;App=WU_STORE;OEMName_Uncleaned=Microsoft Corporation;AppVer=0.0.0.0;OSArchitecture=AMD64;SystemSKU=None;UpdateManagementGroup=2;IsFlightingEnabled={flightEnabled};IsDeviceRetailDemo=0;TelemetryLevel=3;OSVersion={OSVersion};DeviceFamily=Windows.{deviceFamily};</DeviceAttributes>
+                      <DeviceAttributes>BranchReadinessLevel=CB;CurrentBranch={currentBranch};OEMModel=Virtual Machine;FlightRing={flightRing};AttrDataVer=21;SystemManufacturer=Microsoft Corporation;InstallLanguage={lang}-{market};OSUILocale={lang}-{market};InstallationType={installType};FlightingBranchName={flightingBranchName};FirmwareVersion=Hyper-V UEFI Release v2.5;SystemProductName=Virtual Machine;OSSkuId=48;FlightContent=Mainline;App=WU_STORE;OEMName_Uncleaned=Microsoft Corporation;AppVer=0.0.0.0;OSArchitecture={osArch};SystemSKU=None;UpdateManagementGroup=2;IsFlightingEnabled={flightEnabled};IsDeviceRetailDemo=0;TelemetryLevel=3;OSVersion={OSVersion};DeviceFamily=Windows.{deviceFamily};</DeviceAttributes>
                       <CallerAttributes>Interactive=1;IsSeeker=0;</CallerAttributes>
                       <Products />
                     </ProductsParameters>
@@ -621,19 +641,6 @@ public static partial class FE3Handler
             </s:Envelope>
             """;
     }
-
-    public static DeviceFamily ConvertFE3PlatformToDeviceFamily(long platform) =>
-        platform switch
-        {
-            0 => DeviceFamily.Universal,
-            3 => DeviceFamily.Desktop,
-            4 => DeviceFamily.Mobile,
-            5 => DeviceFamily.Xbox,
-            6 => DeviceFamily.Team,
-            10 => DeviceFamily.Holographic,
-            16 => DeviceFamily.Core,
-            _ => DeviceFamily.Unknown,
-        };
 
     public static async Task<Result<string>> GetFileUrl(
         Cookie cookie,
@@ -647,7 +654,8 @@ public static partial class FE3Handler
         string flightingBranchName,
         Version OSVersion,
         DeviceFamily deviceFamily,
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken = default,
+        OSArch osArch = OSArch.AMD64
     )
     {
         try
@@ -665,16 +673,16 @@ public static partial class FE3Handler
 
             string content = $"""
                 <s:Envelope
-                	xmlns:a="http://www.w3.org/2005/08/addressing"
-                	xmlns:s="http://www.w3.org/2003/05/soap-envelope">
+                xmlns:a="http://www.w3.org/2005/08/addressing"
+                xmlns:s="http://www.w3.org/2003/05/soap-envelope">
                     <s:Header>
                         <a:Action s:mustUnderstand="1">http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService/GetExtendedUpdateInfo2</a:Action>
                         <a:MessageID>urn:uuid:{Guid.NewGuid()}</a:MessageID>
                         <a:To s:mustUnderstand="1">https://fe3.delivery.mp.microsoft.com/ClientWebService/client.asmx/secured</a:To>
                         <o:Security s:mustUnderstand="1"
-                			xmlns:o="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+                xmlns:o="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
                             <Timestamp
-                				xmlns="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
+                xmlns="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
                                 <Created>{DateTime.UtcNow.ToString(
                     "yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'"
                 )}</Created>
@@ -685,7 +693,7 @@ public static partial class FE3Handler
                     </s:Header>
                     <s:Body>
                         <GetExtendedUpdateInfo2
-                			xmlns="http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService">
+                xmlns="http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService">
                             <updateIDs>
                                 <UpdateIdentity>
                                     <UpdateID>{updateID}</UpdateID>
@@ -696,7 +704,7 @@ public static partial class FE3Handler
                                 <XmlUpdateFragmentType>FileUrl</XmlUpdateFragmentType>
                                 <XmlUpdateFragmentType>FileDecryption</XmlUpdateFragmentType>
                             </infoTypes>
-                            <deviceAttributes>BranchReadinessLevel=CB;CurrentBranch={currentBranch};OEMModel=Virtual Machine;FlightRing={flightRing};AttrDataVer=21;SystemManufacturer=Microsoft Corporation;InstallLanguage={lang}-{market};OSUILocale={lang}-{market};InstallationType={installType};FlightingBranchName={flightingBranchName};FirmwareVersion=Hyper-V UEFI Release v2.5;SystemProductName=Virtual Machine;OSSkuId=48;FlightContent=Mainline;App=WU_STORE;OEMName_Uncleaned=Microsoft Corporation;AppVer=0.0.0.0;OSArchitecture=AMD64;SystemSKU=None;UpdateManagementGroup=2;IsFlightingEnabled={flightEnabled};IsDeviceRetailDemo=0;TelemetryLevel=3;OSVersion={OSVersion};DeviceFamily=Windows.{deviceFamily};</deviceAttributes>
+                            <deviceAttributes>BranchReadinessLevel=CB;CurrentBranch={currentBranch};OEMModel=Virtual Machine;FlightRing={flightRing};AttrDataVer=21;SystemManufacturer=Microsoft Corporation;InstallLanguage={lang}-{market};OSUILocale={lang}-{market};InstallationType={installType};FlightingBranchName={flightingBranchName};FirmwareVersion=Hyper-V UEFI Release v2.5;SystemProductName=Virtual Machine;OSSkuId=48;FlightContent=Mainline;App=WU_STORE;OEMName_Uncleaned=Microsoft Corporation;AppVer=0.0.0.0;OSArchitecture={osArch};SystemSKU=None;UpdateManagementGroup=2;IsFlightingEnabled={flightEnabled};IsDeviceRetailDemo=0;TelemetryLevel=3;OSVersion={OSVersion};DeviceFamily=Windows.{deviceFamily};</deviceAttributes>
                         </GetExtendedUpdateInfo2>
                     </s:Body>
                 </s:Envelope>

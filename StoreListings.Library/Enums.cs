@@ -3,6 +3,15 @@
 /// <summary>
 /// Represents categories used for recommendations.
 /// </summary>
+///
+public enum OSArch
+{
+    AMD64,
+    X86,
+    ARM64,
+    ARM,
+}
+
 public enum Category
 {
     TopFree,
