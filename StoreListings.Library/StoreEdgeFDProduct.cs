@@ -74,6 +74,11 @@ public class StoreEdgeFDProduct
     /// </summary>
     public required InstallerType InstallerType { get; set; }
 
+    /// <summary>
+    /// The package family name, when available.
+    /// </summary>
+    public string? PackageFamilyName { get; set; }
+
     [SetsRequiredMembers]
     private StoreEdgeFDProduct(
         string productId,
@@ -88,7 +93,8 @@ public class StoreEdgeFDProduct
         long? ratingCount,
         long? size,
         InstallerType installerType,
-        bool isBundle
+        bool isBundle,
+        string? packageFamilyName
     )
     {
         ProductId = productId;
@@ -104,6 +110,7 @@ public class StoreEdgeFDProduct
         Size = size;
         InstallerType = installerType;
         IsBundle = isBundle;
+        PackageFamilyName = packageFamilyName;
     }
 
     public static async Task<Result<StoreEdgeFDProduct>> GetProductAsync(
@@ -272,6 +279,32 @@ public class StoreEdgeFDProduct
                 isBundle = true;
             }
 
+            string? packageFamilyName = null;
+            if (skuElement.TryGetProperty("FulfillmentData", out JsonElement fulfillmentDataJson))
+            {
+                var fulfillmentData = fulfillmentDataJson.GetString();
+                if (!string.IsNullOrWhiteSpace(fulfillmentData))
+                {
+                    try
+                    {
+                        using var fulfillmentDoc = JsonDocument.Parse(fulfillmentData);
+                        if (
+                            fulfillmentDoc.RootElement.TryGetProperty(
+                                "PackageFamilyName",
+                                out JsonElement packageFamilyNameJson
+                            )
+                        )
+                        {
+                            packageFamilyName = packageFamilyNameJson.GetString();
+                        }
+                    }
+                    catch
+                    {
+                        // Ignore malformed fulfillment data.
+                    }
+                }
+            }
+
             return Result<StoreEdgeFDProduct>.Success(
                 new(
                     prodId,
@@ -286,7 +319,8 @@ public class StoreEdgeFDProduct
                     ratingCount,
                     size,
                     installerType,
-                    isBundle
+                    isBundle,
+                    packageFamilyName
                 )
             );
         }
