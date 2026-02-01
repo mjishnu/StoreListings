@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using System.Xml.Linq;
 using StoreListings.Library.Internal;
@@ -182,7 +181,7 @@ public static partial class FE3Handler
             while (true)
             {
                 content = GenerateSyncUpdatesPayload(
-                    cookie,
+                    currentCookie,
                     WuCategoryId,
                     lang,
                     market,
@@ -402,22 +401,37 @@ public static partial class FE3Handler
                                 out JsonElement targetPlatforms
                             )
                         )
-                            continue; // Windows 8, not yet supported.
-                        int numPlatforms = targetPlatforms.GetArrayLength();
-                        platforms = new(numPlatforms);
-                        for (int i = 0; i < numPlatforms; i++)
                         {
-                            JsonElement targetPlatform = targetPlatforms[i];
-                            SyncUpdatesResponse.Update.Platform platform = new()
+                            // for old style use request platform
+                            platforms =
+                            [
+                                new SyncUpdatesResponse.Update.Platform
+                                {
+                                    Family = deviceFamily,
+                                    MinVersion = OSVersion,
+                                },
+                            ];
+                        }
+                        else
+                        {
+                            int numPlatforms = targetPlatforms.GetArrayLength();
+                            platforms = new(numPlatforms);
+                            for (int i = 0; i < numPlatforms; i++)
                             {
-                                Family = ConvertFE3PlatformToDeviceFamily(
-                                    targetPlatform.GetProperty("platform.target").GetInt64()
-                                ),
-                                MinVersion = Version.FromWindowsRepresentation(
-                                    targetPlatform.GetProperty("platform.minVersion").GetUInt64()
-                                ),
-                            };
-                            platforms.Add(platform);
+                                JsonElement targetPlatform = targetPlatforms[i];
+                                SyncUpdatesResponse.Update.Platform platform = new()
+                                {
+                                    Family = ConvertFE3PlatformToDeviceFamily(
+                                        targetPlatform.GetProperty("platform.target").GetInt64()
+                                    ),
+                                    MinVersion = Version.FromWindowsRepresentation(
+                                        targetPlatform
+                                            .GetProperty("platform.minVersion")
+                                            .GetUInt64()
+                                    ),
+                                };
+                                platforms.Add(platform);
+                            }
                         }
                     }
 
@@ -453,7 +467,6 @@ public static partial class FE3Handler
                     }
                 }
             }
-
             return Result<SyncUpdatesResponse>.Success(
                 new SyncUpdatesResponse() { NewCookie = currentCookie, Updates = updateResponses }
             );
