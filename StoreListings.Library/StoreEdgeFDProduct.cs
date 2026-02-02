@@ -50,6 +50,11 @@ public class StoreEdgeFDProduct
     public required string? RevisionId { get; set; }
 
     /// <summary>
+    /// Store version (Packaged apps: best-effort, Unpackaged apps: from package manifest).
+    /// </summary>
+    public string? Version { get; set; }
+
+    /// <summary>
     /// The product rating.
     /// </summary>
     public required double? Rating { get; set; }
@@ -272,6 +277,32 @@ public class StoreEdgeFDProduct
                 _ => InstallerType.Unknown,
             };
 
+            string? storeVersion = null;
+            try
+            {
+                if (payloadElement.TryGetProperty("Installer", out var installer)
+                    && installer.TryGetProperty("Architectures", out var arch)
+                    && arch.ValueKind == JsonValueKind.Object)
+                {
+                    JsonElement selected = default;
+                    if (arch.TryGetProperty("x64", out var x64))
+                        selected = x64;
+                    else if (arch.TryGetProperty("x86", out var x86))
+                        selected = x86;
+
+                    if (selected.ValueKind != JsonValueKind.Undefined
+                        && selected.TryGetProperty("Version", out var v)
+                        && v.ValueKind == JsonValueKind.String)
+                    {
+                        storeVersion = v.GetString();
+                    }
+                }
+            }
+            catch
+            {
+                // ignore version parsing failures
+            }
+
             bool isBundle = false;
             JsonElement skuElement = payloadElement.GetProperty("Skus").EnumerateArray().First();
             if (skuElement.TryGetProperty("BundledSkus", out JsonElement bundleElement))
@@ -280,29 +311,10 @@ public class StoreEdgeFDProduct
             }
 
             string? packageFamilyName = null;
-            if (skuElement.TryGetProperty("FulfillmentData", out JsonElement fulfillmentDataJson))
+            if (payloadElement.TryGetProperty("PackageFamilyNames", out var pfnArray)
+                && pfnArray.ValueKind == JsonValueKind.Array)
             {
-                var fulfillmentData = fulfillmentDataJson.GetString();
-                if (!string.IsNullOrWhiteSpace(fulfillmentData))
-                {
-                    try
-                    {
-                        using var fulfillmentDoc = JsonDocument.Parse(fulfillmentData);
-                        if (
-                            fulfillmentDoc.RootElement.TryGetProperty(
-                                "PackageFamilyName",
-                                out JsonElement packageFamilyNameJson
-                            )
-                        )
-                        {
-                            packageFamilyName = packageFamilyNameJson.GetString();
-                        }
-                    }
-                    catch
-                    {
-                        // Ignore malformed fulfillment data.
-                    }
-                }
+                packageFamilyName = pfnArray.EnumerateArray().Select(e => e.GetString()).FirstOrDefault(s => !string.IsNullOrWhiteSpace(s));
             }
 
             return Result<StoreEdgeFDProduct>.Success(
@@ -322,6 +334,9 @@ public class StoreEdgeFDProduct
                     isBundle,
                     packageFamilyName
                 )
+                {
+                    Version = storeVersion,
+                }
             );
         }
         catch (Exception ex)
@@ -331,7 +346,7 @@ public class StoreEdgeFDProduct
     }
 
     public async Task<
-        Result<(string InstallerUrl, string FileName, string InstallerSwitches)>
+        Result<(string InstallerUrl, string FileName, string InstallerSwitches, string? Version)>
     > GetUnpackagedInstall(
         Market market,
         Lang language,
@@ -363,13 +378,20 @@ public class StoreEdgeFDProduct
                 return Result<(
                     string InstallerUrl,
                     string FileName,
-                    string InstallerSwitches
+                    string InstallerSwitches,
+                    string? Version
                 )>.Failure(new Exception(json!.RootElement.GetProperty("message").GetString()));
             }
 
             JsonElement versionElement = json!
                 .RootElement.GetProperty("Data")
                 .GetProperty("Versions")[0];
+
+            string? version = null;
+            if (versionElement.TryGetProperty("PackageVersion", out var packageVersionJson))
+            {
+                version = packageVersionJson.GetString();
+            }
 
             var installers = versionElement.GetProperty("Installers");
             string packageName = versionElement
@@ -412,7 +434,8 @@ public class StoreEdgeFDProduct
                 return Result<(
                     string InstallerUrl,
                     string FileName,
-                    string InstallerSwitches
+                    string InstallerSwitches,
+                    string? Version
                 )>.Failure(
                     new Exception("No installer found for the specified language and market.")
                 );
@@ -426,13 +449,16 @@ public class StoreEdgeFDProduct
 
             string fileName = $"{packageName}.{highestPriority.InstallerType.ToLowerInvariant()}";
 
-            return Result<(string InstallerUrl, string FileName, string InstallerSwitches)>.Success(
-                (highestPriority.InstallerUrl, fileName, highestPriority.InstallerSwitches)
+            // Store the version on the product instance for later update detection.
+            Version = version;
+
+            return Result<(string InstallerUrl, string FileName, string InstallerSwitches, string? Version)>.Success(
+                (highestPriority.InstallerUrl, fileName, highestPriority.InstallerSwitches, version)
             );
         }
         catch (Exception ex)
         {
-            return Result<(string InstallerUrl, string FileName, string InstallerSwitches)>.Failure(
+            return Result<(string InstallerUrl, string FileName, string InstallerSwitches, string? Version)>.Failure(
                 ex
             );
         }
