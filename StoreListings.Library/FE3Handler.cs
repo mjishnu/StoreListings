@@ -655,11 +655,11 @@ public static partial class FE3Handler
             """;
     }
 
-    public static async Task<Result<string>> GetFileUrl(
+    public static async Task<Result<PackageDownloadInfo>> GetPackageDownloadInfo(
         Cookie cookie,
         string updateID,
         string revisionNumber,
-        string digest,
+        string packageDigest,
         Lang lang,
         Market market,
         string currentBranch,
@@ -764,6 +764,10 @@ public static partial class FE3Handler
                 )
             )!;
 
+            string? packageUrl = null;
+            string? blockmapUrl = null;
+            string? blockmapDigest = null;
+
             foreach (XElement fileLocation in listOfLocations)
             {
                 string fileDigest = fileLocation
@@ -774,8 +778,6 @@ public static partial class FE3Handler
                         )
                     )!
                     .Value;
-                if (fileDigest != digest)
-                    continue;
                 string fileUrl = fileLocation
                     .Element(
                         XName.Get(
@@ -784,14 +786,32 @@ public static partial class FE3Handler
                         )
                     )!
                     .Value;
-                return Result<string>.Success(fileUrl);
+
+                if (fileDigest == packageDigest)
+                    packageUrl = fileUrl;
+                else
+                {
+                    blockmapDigest = fileDigest;
+                    blockmapUrl = fileUrl;
+                }
             }
 
-            return Result<string>.Failure(new Exception("No suitable file URL found."));
+            if (packageUrl is null)
+                return Result<PackageDownloadInfo>.Failure(
+                    new Exception("No suitable package URL found.")
+                );
+
+            var pkg = new DownloadResource(packageUrl, packageDigest);
+            var blockmap =
+                blockmapUrl is null || blockmapDigest is null
+                    ? null
+                    : new DownloadResource(blockmapUrl, blockmapDigest);
+
+            return Result<PackageDownloadInfo>.Success(new PackageDownloadInfo(pkg, blockmap));
         }
         catch (Exception ex)
         {
-            return Result<string>.Failure(ex);
+            return Result<PackageDownloadInfo>.Failure(ex);
         }
     }
 }

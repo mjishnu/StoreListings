@@ -353,7 +353,7 @@ public class Commands
 
                 foreach (FE3Handler.SyncUpdatesResponse.Update update in fe3sync.Value.Updates)
                 {
-                    Result<string> fileUrlResult = await FE3Handler.GetFileUrl(
+                    var fileUrlResult = await FE3Handler.GetPackageDownloadInfo(
                         fe3sync.Value.NewCookie,
                         update.UpdateID,
                         update.RevisionNumber,
@@ -375,7 +375,7 @@ public class Commands
                         );
                         return;
                     }
-                    updatesAndUrl.Add((update, fileUrlResult.Value));
+                    updatesAndUrl.Add((update, fileUrlResult.Value.Package.Url));
                 }
 
                 int printedPackages = 0;
@@ -517,11 +517,7 @@ public class Commands
                 break;
 
             case InstallerType.Unpackaged:
-                Result<(
-                    string InstallerUrl,
-                    string FileName,
-                    string InstallerSwitches
-                )> unpackagedResult = await product.GetUnpackagedInstall(
+                var unpackagedResult = await product.GetUnpackagedInstall(
                     market,
                     language,
                     cancellationToken

@@ -22,3 +22,15 @@ public sealed class Card(
     public double? AverageRating { get; } = averageRating;
     public Image Image { get; } = image;
 }
+
+public sealed class DownloadResource(string url, string digest)
+{
+    public string Url { get; } = url;
+    public string Digest { get; } = digest;
+}
+
+public sealed class PackageDownloadInfo(DownloadResource package, DownloadResource? blockmapCab)
+{
+    public DownloadResource Package { get; } = package;
+    public DownloadResource? BlockmapCab { get; } = blockmapCab;
+}
