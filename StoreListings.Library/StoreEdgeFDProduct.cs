@@ -1,4 +1,6 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using StoreListings.Library.Internal;
 
@@ -272,7 +274,7 @@ public class StoreEdgeFDProduct
                 .GetString()! switch
             {
                 "WindowsUpdate" => InstallerType.Packaged,
-                "WPM" => InstallerType.Unpackaged,
+                "WPM" or "DirectInstall" => InstallerType.Unpackaged,
                 // GamingServices?
                 _ => InstallerType.Unknown,
             };
@@ -280,9 +282,11 @@ public class StoreEdgeFDProduct
             string? storeVersion = null;
             try
             {
-                if (payloadElement.TryGetProperty("Installer", out var installer)
+                if (
+                    payloadElement.TryGetProperty("Installer", out var installer)
                     && installer.TryGetProperty("Architectures", out var arch)
-                    && arch.ValueKind == JsonValueKind.Object)
+                    && arch.ValueKind == JsonValueKind.Object
+                )
                 {
                     JsonElement selected = default;
                     if (arch.TryGetProperty("x64", out var x64))
@@ -290,9 +294,11 @@ public class StoreEdgeFDProduct
                     else if (arch.TryGetProperty("x86", out var x86))
                         selected = x86;
 
-                    if (selected.ValueKind != JsonValueKind.Undefined
+                    if (
+                        selected.ValueKind != JsonValueKind.Undefined
                         && selected.TryGetProperty("Version", out var v)
-                        && v.ValueKind == JsonValueKind.String)
+                        && v.ValueKind == JsonValueKind.String
+                    )
                     {
                         storeVersion = v.GetString();
                     }
@@ -311,10 +317,15 @@ public class StoreEdgeFDProduct
             }
 
             string? packageFamilyName = null;
-            if (payloadElement.TryGetProperty("PackageFamilyNames", out var pfnArray)
-                && pfnArray.ValueKind == JsonValueKind.Array)
+            if (
+                payloadElement.TryGetProperty("PackageFamilyNames", out var pfnArray)
+                && pfnArray.ValueKind == JsonValueKind.Array
+            )
             {
-                packageFamilyName = pfnArray.EnumerateArray().Select(e => e.GetString()).FirstOrDefault(s => !string.IsNullOrWhiteSpace(s));
+                packageFamilyName = pfnArray
+                    .EnumerateArray()
+                    .Select(e => e.GetString())
+                    .FirstOrDefault(s => !string.IsNullOrWhiteSpace(s));
             }
 
             return Result<StoreEdgeFDProduct>.Success(
@@ -346,7 +357,13 @@ public class StoreEdgeFDProduct
     }
 
     public async Task<
-        Result<(string InstallerUrl, string FileName, string InstallerSwitches, string? Version)>
+        Result<(
+            string InstallerUrl,
+            string FileName,
+            string InstallerSwitches,
+            string Version,
+            string InstallerSha256
+        )>
     > GetUnpackagedInstall(
         Market market,
         Lang language,
@@ -379,88 +396,148 @@ public class StoreEdgeFDProduct
                     string InstallerUrl,
                     string FileName,
                     string InstallerSwitches,
-                    string? Version
+                    string Version,
+                    string InstallerSha256
                 )>.Failure(new Exception(json!.RootElement.GetProperty("message").GetString()));
             }
 
-            JsonElement versionElement = json!
-                .RootElement.GetProperty("Data")
-                .GetProperty("Versions")[0];
+            JsonElement dataElement = json!.RootElement.GetProperty("Data");
+            JsonElement versionsArray = dataElement.GetProperty("Versions");
 
-            string? version = null;
-            if (versionElement.TryGetProperty("PackageVersion", out var packageVersionJson))
-            {
-                version = packageVersionJson.GetString();
-            }
-
-            var installers = versionElement.GetProperty("Installers");
-            string packageName = versionElement
-                .GetProperty("DefaultLocale")
-                .GetProperty("PackageName")
-                .GetString()!;
-
-            List<(
-                string InstallerUrl,
-                string InstallerSwitches,
-                string InstallerType,
-                uint Priority
-            )> installersList = new(2);
-            for (int i = 0; i < installers.GetArrayLength(); i++)
-            {
-                JsonElement installer = installers[i];
-                string locale = installer.GetProperty("InstallerLocale").GetString()!;
-                if (!locale.StartsWith(language.ToString(), StringComparison.OrdinalIgnoreCase))
-                    continue;
-                int priority = locale.Equals(
-                    $"{language}-{market}",
-                    StringComparison.OrdinalIgnoreCase
-                )
-                    ? 1
-                    : 0;
-                installersList.Add(
-                    (
-                        installer.GetProperty("InstallerUrl").GetString()!,
-                        installer
-                            .GetProperty("InstallerSwitches")
-                            .GetProperty("Silent")
-                            .GetString()!,
-                        installer.GetProperty("InstallerType").GetString()!,
-                        (uint)priority
-                    )
-                );
-            }
-            if (installersList.Count == 0)
+            if (
+                versionsArray.ValueKind != JsonValueKind.Array
+                || versionsArray.GetArrayLength() == 0
+            )
             {
                 return Result<(
                     string InstallerUrl,
                     string FileName,
                     string InstallerSwitches,
-                    string? Version
-                )>.Failure(
-                    new Exception("No installer found for the specified language and market.")
-                );
+                    string Version,
+                    string InstallerSha256
+                )>.Failure(new Exception("Package manifest contains no versions."));
             }
-            (
-                string InstallerUrl,
-                string InstallerSwitches,
-                string InstallerType,
-                uint Priority
-            ) highestPriority = installersList.OrderByDescending(f => f.Priority).ElementAt(0);
 
-            string fileName = $"{packageName}.{highestPriority.InstallerType.ToLowerInvariant()}";
+            // Select version: prefer highest parsable `System.Version`, otherwise fall back to [0].
+            JsonElement selectedVersion = versionsArray[0];
+            System.Version? bestVersion = null;
+            foreach (JsonElement v in versionsArray.EnumerateArray())
+            {
+                string pv = ExtractNumericVersionPrefix(GetString(v, "PackageVersion"));
+                if (!System.Version.TryParse(pv, out var parsed))
+                    continue;
+
+                if (bestVersion is null || parsed > bestVersion)
+                {
+                    bestVersion = parsed;
+                    selectedVersion = v;
+                }
+            }
+
+            string version = GetString(selectedVersion, "PackageVersion") ?? "Unknown";
+
+            JsonElement? installersArray = GetArray(selectedVersion, "Installers");
+            if (installersArray is null || installersArray.Value.GetArrayLength() == 0)
+            {
+                return Result<(
+                    string InstallerUrl,
+                    string FileName,
+                    string InstallerSwitches,
+                    string Version,
+                    string InstallerSha256
+                )>.Failure(new Exception("No installers found in the manifest."));
+            }
+
+            string packageName = GetObject(selectedVersion, "DefaultLocale")
+                is JsonElement localeObj
+                ? (GetString(localeObj, "PackageName") ?? "package")
+                : "package";
+
+            // Select installer: prefer language match, otherwise fall back to [0].
+            JsonElement selectedInstaller = installersArray.Value[0];
+            foreach (JsonElement installer in installersArray.Value.EnumerateArray())
+            {
+                string installerLocale = GetString(installer, "InstallerLocale") ?? string.Empty;
+                if (
+                    installerLocale.StartsWith(
+                        language.ToString(),
+                        StringComparison.OrdinalIgnoreCase
+                    )
+                )
+                {
+                    selectedInstaller = installer;
+                    break;
+                }
+            }
+
+            string installerUrl = GetString(selectedInstaller, "InstallerUrl") ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(installerUrl))
+            {
+                return Result<(
+                    string InstallerUrl,
+                    string FileName,
+                    string InstallerSwitches,
+                    string Version,
+                    string InstallerSha256
+                )>.Failure(new Exception("Selected installer has no InstallerUrl."));
+            }
+
+            string installerType = (
+                GetString(selectedInstaller, "InstallerType") ?? "exe"
+            ).ToLowerInvariant();
+            string fileName = $"{packageName}.{installerType}";
+
+            string installerSwitches = string.Empty;
+            if (GetObject(selectedInstaller, "InstallerSwitches") is JsonElement switches)
+                installerSwitches = GetString(switches, "Silent") ?? string.Empty;
+
+            string installerSha256 =
+                GetString(selectedInstaller, "InstallerSha256") ?? string.Empty;
 
             // Store the version on the product instance for later update detection.
             Version = version;
 
-            return Result<(string InstallerUrl, string FileName, string InstallerSwitches, string? Version)>.Success(
-                (highestPriority.InstallerUrl, fileName, highestPriority.InstallerSwitches, version)
-            );
+            return Result<(
+                string InstallerUrl,
+                string FileName,
+                string InstallerSwitches,
+                string Version,
+                string InstallerSha256
+            )>.Success((installerUrl, fileName, installerSwitches, version, installerSha256));
         }
         catch (Exception ex)
         {
-            return Result<(string InstallerUrl, string FileName, string InstallerSwitches, string? Version)>.Failure(
-                ex
-            );
+            return Result<(
+                string InstallerUrl,
+                string FileName,
+                string InstallerSwitches,
+                string Version,
+                string InstallerSha256
+            )>.Failure(ex);
         }
+    }
+
+    private static string? GetString(JsonElement obj, string name) =>
+        obj.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.String
+            ? p.GetString()
+            : null;
+
+    private static JsonElement? GetObject(JsonElement obj, string name) =>
+        obj.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.Object ? p : null;
+
+    private static JsonElement? GetArray(JsonElement obj, string name) =>
+        obj.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.Array ? p : null;
+
+    private static string ExtractNumericVersionPrefix(string? s)
+    {
+        if (string.IsNullOrWhiteSpace(s))
+            return string.Empty;
+
+        // e.g. "6.6.11 (23272)" => "6.6.11"
+        ReadOnlySpan<char> span = s.AsSpan().Trim();
+        int space = span.IndexOf(' ');
+        if (space > 0)
+            span = span[..space];
+        return span.ToString();
     }
 }

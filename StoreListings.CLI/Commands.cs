@@ -542,6 +542,16 @@ public class Commands
                 Console.WriteLine("Installer silent switches:");
                 Console.ResetColor();
                 Console.WriteLine(unpackagedResult.Value.InstallerSwitches);
+                Console.WriteLine();
+                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.WriteLine("Version:");
+                Console.ResetColor();
+                Console.WriteLine(unpackagedResult.Value.Version);
+                Console.WriteLine();
+                Console.ForegroundColor = ConsoleColor.Blue;
+                Console.WriteLine("Installer SHA256:");
+                Console.ResetColor();
+                Console.WriteLine(unpackagedResult.Value.InstallerSha256);
                 break;
 
             case InstallerType.Unknown:
