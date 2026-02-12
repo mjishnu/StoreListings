@@ -400,11 +400,11 @@ public class Commands
                     bool frameworkDependencyApplicable = true;
 
                     DCATPackage? package = packageResult.Value.FirstOrDefault(f =>
-                        f.PackageIdentity.Equals(
+                        f.PackageFamilyName.Equals(
                             update.Update.PackageIdentityName,
                             StringComparison.OrdinalIgnoreCase
                         )
-                        && f.Version == update.Update.Version
+                        && f.AppVersion == update.Update.Version
                     );
 
                     IEnumerable<(
@@ -562,5 +562,134 @@ public class Commands
         }
 
         HideProgressBar();
+    }
+
+    /// <summary>
+    /// Query packages for a product from the Display Catalog.
+    /// </summary>
+    /// <param name="productId">The product ID to query.</param>
+    /// <param name="market">-m, The store market/region to query from.</param>
+    /// <param name="language">-l, The language, for listings that use localization.</param>
+    public async Task QueryPackages(
+        [Argument] string productId,
+        CancellationToken cancellationToken,
+        Market market = Market.US,
+        Lang language = Lang.en
+    )
+    {
+        WriteLoadingProgressBar();
+        Result<IEnumerable<DCATPackage>> result = await DCATPackage.GetPackagesAsync(
+            productId,
+            market,
+            language,
+            true
+        );
+        HideProgressBar();
+        if (result.IsSuccess)
+        {
+            foreach (var package in result.Value)
+            {
+                WriteField("Product ID", package.ProductId ?? "Missing");
+                WriteField("Title", package.Title ?? "Missing");
+                WriteField("Short Description", package.ShortDescription ?? "Missing");
+                WriteField("Description", package.Description ?? "Missing");
+                WriteField("Publisher", package.PublisherName ?? "Missing");
+                WriteField("Revision ID", package.RevisionId ?? "Missing");
+                WriteField("Average rating", package.Rating.ToString() ?? "Missing");
+                WriteField("Rating count", package.RatingCount.ToString() ?? "Missing");
+                WriteField("Size", package.Size?.ToString() ?? "Missing");
+                WriteField("Is Bundle", package.IsBundle.ToString());
+                WriteField("Package Family Name", package.PackageFamilyName ?? "Missing");
+                WriteField("Logo", package.Logo?.Url ?? "Missing");
+                WriteField("Screenshots", package.Screenshots.Count.ToString());
+                foreach (var screenshot in package.Screenshots)
+                {
+                    Console.WriteLine(screenshot.Url);
+                }
+                WriteField("Version", package.AppVersion.ToString());
+                WriteField("WuCategoryId", package.WuCategoryId);
+                WriteField(
+                    "Platform Dependencies",
+                    string.Join(
+                        ", ",
+                        (
+                            package.PlatformDependencies
+                            ?? Enumerable.Empty<DCATPackage.PlatformDependency>()
+                        ).Select(p => $"{p.Platform}: {p.MinVersion}")
+                    )
+                );
+                WriteField(
+                    "Framework Dependencies",
+                    string.Join(
+                        ", ",
+                        (
+                            package.FrameworkDependencies
+                            ?? Enumerable.Empty<DCATPackage.FrameworkDependency>()
+                        ).Select(f => $"{f.PackageIdentity}: {f.MinVersion}")
+                    )
+                );
+                Console.WriteLine();
+            }
+        }
+        else
+        {
+            Console.WriteLine(result.Exception);
+        }
+    }
+
+    /// <summary>
+    /// Query a product page details from Microsoft Store.
+    /// </summary>
+    /// <param name="productId">The product ID of the product to query.</param>
+    /// <param name="architecture">The architecture (e.g. x64, x86, arm, arm64).</param>
+    /// <param name="market">-m, The store market/region to query from.</param>
+    /// <param name="language">-l, The language, for listings that use localization.</param>
+    public async Task QueryPage(
+        [Argument] string productId,
+        CancellationToken cancellationToken,
+        StoreEdgeFDArch architecture = StoreEdgeFDArch.X64,
+        Market market = Market.US,
+        Lang language = Lang.en
+    )
+    {
+        WriteLoadingProgressBar();
+        Result<StoreEdgeFDPage> result = await StoreEdgeFDPage.GetProductAsync(
+            productId,
+            architecture,
+            market,
+            language,
+            cancellationToken
+        );
+        HideProgressBar();
+        if (result.IsSuccess)
+        {
+            StoreEdgeFDPage page = result.Value;
+            WriteField("Product ID", page.ProductId);
+            WriteField("Title", page.Title);
+            WriteField("Logo", page.Logo.Url);
+            WriteField("Screenshots", page.Screenshots.Count.ToString());
+            foreach (var screenshot in page.Screenshots)
+            {
+                Console.WriteLine(screenshot.Url);
+            }
+            WriteField("Short Description", page.ShortDescription);
+            WriteField("Description", page.Description);
+            WriteField("Publisher", page.PublisherName);
+            WriteField("Average rating", page.Rating.ToString());
+            WriteField("Rating count", page.RatingCount.ToString());
+            if (page.Size.HasValue)
+                WriteField("Size", page.Size.Value.ToString());
+            WriteField("Installer Type", page.InstallerType.ToString());
+            if (page.PackageFamilyName is not null)
+                WriteField("Package Family Name", page.PackageFamilyName);
+            if (page.LastUpdateDate.HasValue)
+                WriteField("Last Update Date", page.LastUpdateDate.Value.ToString());
+            if (page.Version is not null)
+                WriteField("Version", page.Version);
+        }
+        else
+        {
+            Console.WriteLine(result.Exception);
+        }
     }
 }

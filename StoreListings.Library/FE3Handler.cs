@@ -166,7 +166,7 @@ public static partial class FE3Handler
         Version OSVersion,
         DeviceFamily deviceFamily,
         CancellationToken cancellationToken = default,
-        OSArch osArchitecture = OSArch.AMD64
+        FE3OSArch osArchitecture = FE3OSArch.AMD64
     )
     {
         try
@@ -489,7 +489,7 @@ public static partial class FE3Handler
         DeviceFamily deviceFamily,
         IEnumerable<string> additionalInstalledNonLeafUpdateIDs,
         IEnumerable<string> additionalOtherCachedUpdateIDs,
-        OSArch osArch = OSArch.AMD64
+        FE3OSArch osArch = FE3OSArch.AMD64
     )
     {
         int flightEnabled = flightRing == "Retail" ? 0 : 1;
@@ -668,7 +668,7 @@ public static partial class FE3Handler
         Version OSVersion,
         DeviceFamily deviceFamily,
         CancellationToken cancellationToken = default,
-        OSArch osArch = OSArch.AMD64
+        FE3OSArch osArch = FE3OSArch.AMD64
     )
     {
         try

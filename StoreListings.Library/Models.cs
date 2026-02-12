@@ -13,6 +13,7 @@ public sealed class Card(
     string title,
     string? displayPrice,
     double? averageRating,
+    InstallerType installerType,
     Image image
 )
 {
@@ -20,6 +21,7 @@ public sealed class Card(
     public string Title { get; } = title;
     public string? DisplayPrice { get; } = displayPrice;
     public double? AverageRating { get; } = averageRating;
+    public InstallerType InstallerType { get; } = installerType;
     public Image Image { get; } = image;
 }
 

@@ -1,15 +1,27 @@
 ﻿namespace StoreListings.Library;
 
 /// <summary>
-/// Represents categories used for recommendations.
+/// Represents diffrent device architecure for FE3.
 /// </summary>
 ///
-public enum OSArch
+public enum FE3OSArch
 {
     AMD64,
     X86,
     ARM64,
     ARM,
+}
+
+/// <summary>
+/// Represents diffrent device architecure for StoreEdge.
+/// </summary>
+///
+public enum StoreEdgeFDArch
+{
+    X64,
+    X86,
+    ARM,
+    ARM64,
 }
 
 public enum Category
