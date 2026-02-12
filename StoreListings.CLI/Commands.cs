@@ -517,7 +517,8 @@ public class Commands
                 break;
 
             case InstallerType.Unpackaged:
-                var unpackagedResult = await product.GetUnpackagedInstall(
+                var unpackagedResult = await StoreEdgeFDProduct.GetUnpackagedInstall(
+                    productId,
                     market,
                     language,
                     cancellationToken

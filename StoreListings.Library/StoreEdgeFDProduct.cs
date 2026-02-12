@@ -265,7 +265,7 @@ public class StoreEdgeFDProduct
                 .GetStringSafe("Version");
     }
 
-    public async Task<
+    public static async Task<
         Result<(
             string InstallerUrl,
             string FileName,
@@ -274,6 +274,7 @@ public class StoreEdgeFDProduct
             string InstallerSha256
         )>
     > GetUnpackagedInstall(
+        string productId,
         Market market,
         Lang language,
         CancellationToken cancellationToken = default
@@ -284,7 +285,7 @@ public class StoreEdgeFDProduct
             using HttpClient client = Helpers.GetStoreHttpClient();
 
             string url =
-                $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/packageManifests/{ProductId}";
+                $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/packageManifests/{productId}";
 
             using HttpResponseMessage response = await client.GetAsync(url, cancellationToken);
 
