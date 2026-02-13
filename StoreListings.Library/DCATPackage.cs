@@ -51,7 +51,7 @@ namespace StoreListings.Library
                 var url =
                     $"https://displaycatalog.mp.microsoft.com/v7.0/products/{packageId}?market={market}&languages={langList}";
 
-                using var client = Helpers.GetStoreHttpClient();
+                HttpClient client = Helpers.GetStoreHttpClient();
                 using var response = await client.GetAsync(url);
 
                 if (!response.IsSuccessStatusCode)

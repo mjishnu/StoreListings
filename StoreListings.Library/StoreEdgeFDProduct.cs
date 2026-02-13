@@ -282,7 +282,7 @@ public class StoreEdgeFDProduct
     {
         try
         {
-            using HttpClient client = Helpers.GetStoreHttpClient();
+            HttpClient client = Helpers.GetStoreHttpClient();
 
             string url =
                 $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/packageManifests/{productId}";

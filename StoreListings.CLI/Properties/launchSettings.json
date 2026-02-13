@@ -2,6 +2,6 @@
   "profiles": {
     "StoreListings.CLI": {
       "commandName": "Project",
-      "commandLineArgs": "query-packages 9NT1R1C2HH7J"
+      "commandLineArgs": "query-product 9NT1R1C2HH7J"
     }
   }
