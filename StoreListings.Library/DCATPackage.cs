@@ -24,6 +24,7 @@ namespace StoreListings.Library
         public required string PublisherName { get; set; }
         public required string RevisionId { get; set; }
         public required string PackageFamilyName { get; set; }
+        public required string PackageIdentityName { get; set; }
         public required bool IsBundle { get; set; }
         public required double Rating { get; set; }
         public required long RatingCount { get; set; }
@@ -74,7 +75,7 @@ namespace StoreListings.Library
                 var localizedProps = root.GetFirstArrayElementOrNull("LocalizedProperties");
                 var marketProps = root.GetFirstArrayElementOrNull("MarketProperties");
                 var rootProps = root.GetPropertySafe("Properties");
-                string productId = root.GetStringSafe("ProductId") ?? packageId;
+                string productId = root.GetStringSafe("ProductId");
                 string title = localizedProps?.GetStringSafe("ProductTitle") ?? "Unknown Title";
                 string shortDesc =
                     localizedProps?.GetStringSafe("ShortDescription") ?? string.Empty;
@@ -87,7 +88,8 @@ namespace StoreListings.Library
                     root.GetStringSafe("LastModifiedDate")
                     ?? rootProps.GetStringSafe("RevisionId")
                     ?? string.Empty;
-                string packageFamily = rootProps.GetStringSafe("PackageFamilyName") ?? string.Empty;
+                string packageFamily = rootProps.GetStringSafe("PackageFamilyName");
+                string packageIdentityName = rootProps.GetStringSafe("PackageIdentityName");
 
                 // Complex Types (Helpers handle defaults)
                 var (logo, screenshots) = ParseImages(localizedProps);
@@ -113,6 +115,7 @@ namespace StoreListings.Library
                     PublisherName = publisher,
                     RevisionId = revisionId,
                     PackageFamilyName = packageFamily,
+                    PackageIdentityName = packageIdentityName,
                     IsBundle = isBundle,
                     Rating = rating,
                     RatingCount = ratingCount,
@@ -165,6 +168,7 @@ namespace StoreListings.Library
                                 PublisherName = basePackage.PublisherName,
                                 RevisionId = basePackage.RevisionId,
                                 PackageFamilyName = basePackage.PackageFamilyName,
+                                PackageIdentityName = basePackage.PackageIdentityName,
                                 IsBundle = false, // Explicitly false for items inside
                                 Rating = basePackage.Rating,
                                 RatingCount = basePackage.RatingCount,

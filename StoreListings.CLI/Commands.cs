@@ -400,7 +400,7 @@ public class Commands
                     bool frameworkDependencyApplicable = true;
 
                     DCATPackage? package = packageResult.Value.FirstOrDefault(f =>
-                        f.PackageFamilyName.Equals(
+                        f.PackageIdentityName.Equals(
                             update.Update.PackageIdentityName,
                             StringComparison.OrdinalIgnoreCase
                         )
