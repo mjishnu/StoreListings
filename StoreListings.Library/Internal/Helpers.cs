@@ -236,7 +236,12 @@ internal static class Helpers
                 }
 
                 // 3. Installer Type Logic
-                var installerType = card.GetPropertySafe("Installer").GetStringSafe("Type") switch
+                string installerTypeStr = card.GetPropertySafe("Installer").GetStringSafe("Type");
+                if (string.IsNullOrEmpty(installerTypeStr))
+                {
+                    installerTypeStr = card.GetStringSafe("InstallerType");
+                }
+                var installerType = installerTypeStr switch
                 {
                     "WindowsUpdate" => InstallerType.Packaged,
                     "WPM" or "DirectInstall" => InstallerType.Unpackaged,
