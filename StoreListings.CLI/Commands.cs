@@ -528,31 +528,36 @@ public class Commands
                     WriteError(unpackagedResult.Exception, "getting unpackaged install");
                     return;
                 }
+                foreach (
+                    var (
+                        InstallerUrl,
+                        FileName,
+                        InstallerSwitches,
+                        Version,
+                        InstallerSha256,
+                        arch
+                    ) in unpackagedResult.Value
+                )
+                {
+                    Console.WriteLine();
+                    Console.ForegroundColor = ConsoleColor.Blue;
+                    Console.WriteLine(Version);
+                    Console.ForegroundColor = ConsoleColor.White;
+                    Console.WriteLine($"Installer file ({FileName}):");
+                    Console.ResetColor();
+                    Console.WriteLine(InstallerUrl);
+                    Console.WriteLine();
+                    Console.WriteLine("Silent switches:");
+                    Console.WriteLine(InstallerSwitches);
+                    Console.WriteLine();
+                    Console.WriteLine("SHA256:");
+                    Console.WriteLine(InstallerSha256);
+                    Console.WriteLine();
+                    Console.WriteLine("arch:");
+                    Console.WriteLine(arch);
+                    Console.WriteLine();
+                }
 
-                Console.ForegroundColor = ConsoleColor.Blue;
-                Console.WriteLine("Installer file name:");
-                Console.ResetColor();
-                Console.WriteLine(unpackagedResult.Value.FileName);
-                Console.WriteLine();
-                Console.ForegroundColor = ConsoleColor.Blue;
-                Console.WriteLine("Installer URL:");
-                Console.ResetColor();
-                Console.WriteLine(unpackagedResult.Value.InstallerUrl);
-                Console.WriteLine();
-                Console.ForegroundColor = ConsoleColor.Blue;
-                Console.WriteLine("Installer silent switches:");
-                Console.ResetColor();
-                Console.WriteLine(unpackagedResult.Value.InstallerSwitches);
-                Console.WriteLine();
-                Console.ForegroundColor = ConsoleColor.Blue;
-                Console.WriteLine("Version:");
-                Console.ResetColor();
-                Console.WriteLine(unpackagedResult.Value.Version);
-                Console.WriteLine();
-                Console.ForegroundColor = ConsoleColor.Blue;
-                Console.WriteLine("Installer SHA256:");
-                Console.ResetColor();
-                Console.WriteLine(unpackagedResult.Value.InstallerSha256);
                 break;
 
             case InstallerType.Unknown:

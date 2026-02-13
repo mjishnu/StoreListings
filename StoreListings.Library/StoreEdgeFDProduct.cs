@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using StoreListings.Library.Internal;
 
@@ -266,13 +267,16 @@ public class StoreEdgeFDProduct
     }
 
     public static async Task<
-        Result<(
-            string InstallerUrl,
-            string FileName,
-            string InstallerSwitches,
-            string Version,
-            string InstallerSha256
-        )>
+        Result<
+            List<(
+                string InstallerUrl,
+                string FileName,
+                string InstallerSwitches,
+                string Version,
+                string InstallerSha256,
+                string architecture
+            )>
+        >
     > GetUnpackagedInstall(
         string productId,
         Market market,
@@ -288,7 +292,6 @@ public class StoreEdgeFDProduct
                 $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/packageManifests/{productId}";
 
             using HttpResponseMessage response = await client.GetAsync(url, cancellationToken);
-
             response.EnsureSuccessStatusCode();
 
             using JsonDocument json = await JsonDocument.ParseAsync(
@@ -298,61 +301,62 @@ public class StoreEdgeFDProduct
 
             JsonElement data = json.RootElement.GetPropertySafe("Data");
 
-            JsonElement bestVersionObj = data.GetPropertySafe("Versions")
-                .EnumerateArray()
-                .OrderByDescending(v =>
-                {
-                    string rawVer = v.GetStringSafe("PackageVersion");
+            var allInstallers = new List<(string, string, string, string, string, string)>();
 
-                    return System.Version.TryParse(
-                        ExtractNumericVersionPrefix(rawVer),
-                        out var parsed
-                    )
-                        ? parsed
-                        : new System.Version();
-                })
-                .First();
+            foreach (JsonElement versionObj in data.GetArraySafe("Versions").EnumerateArray())
+            {
+                string rawVersion = versionObj.GetStringSafe("PackageVersion");
 
-            string version = bestVersionObj.GetStringSafe("PackageVersion") ?? "Unknown";
+                string version = ExtractNumericVersionPrefix(rawVersion);
 
-            JsonElement installers = bestVersionObj.GetPropertySafe("Installers");
+                string packageName = versionObj
+                    .GetPropertySafe("DefaultLocale")
+                    .GetStringSafe("PackageName");
 
-            JsonElement selectedInstaller = installers
-                .EnumerateArray()
-                .OrderByDescending(i =>
-                    (i.GetStringSafe("InstallerLocale") ?? "").StartsWith(
-                        language.ToString(),
-                        StringComparison.OrdinalIgnoreCase
-                    )
+                foreach (
+                    JsonElement installer in versionObj.GetArraySafe("Installers").EnumerateArray()
                 )
-                .First();
+                {
+                    string installerUrl = installer.GetStringSafe("InstallerUrl");
+                    string installerSha256 = installer.GetStringSafe("InstallerSha256");
 
-            string installerUrl = selectedInstaller.GetStringSafe("InstallerUrl");
+                    string installerSwitches = installer
+                        .GetPropertySafe("InstallerSwitches")
+                        .GetStringSafe("Silent");
 
-            string installerSha256 =
-                selectedInstaller.GetStringSafe("InstallerSha256") ?? string.Empty;
+                    string extension = installer.GetStringSafe("InstallerType").ToLowerInvariant();
+                    if (string.IsNullOrEmpty(extension))
+                    {
+                        extension = "exe";
+                    }
 
-            string installerSwitches =
-                selectedInstaller.GetPropertySafe("InstallerSwitches").GetStringSafe("Silent")
-                ?? string.Empty;
+                    string architecture = installer.GetStringSafe("Architecture");
+                    if (string.IsNullOrEmpty(architecture))
+                    {
+                        architecture = "unknown";
+                    }
+                    string fileName = $"{packageName}_{architecture}.{extension}";
 
-            string packageName =
-                bestVersionObj.GetPropertySafe("DefaultLocale").GetStringSafe("PackageName")
-                ?? "package";
+                    allInstallers.Add(
+                        (
+                            installerUrl,
+                            fileName,
+                            installerSwitches,
+                            version,
+                            installerSha256,
+                            architecture
+                        )
+                    );
+                }
+            }
 
-            string extension = (
-                selectedInstaller.GetStringSafe("InstallerType") ?? "exe"
-            ).ToLowerInvariant();
-
-            string fileName = $"{packageName}.{extension}";
-
-            return Result<(string, string, string, string, string)>.Success(
-                (installerUrl, fileName, installerSwitches, version, installerSha256)
+            return Result<List<(string, string, string, string, string, string)>>.Success(
+                allInstallers
             );
         }
         catch (Exception ex)
         {
-            return Result<(string, string, string, string, string)>.Failure(ex);
+            return Result<List<(string, string, string, string, string, string)>>.Failure(ex);
         }
     }
 
