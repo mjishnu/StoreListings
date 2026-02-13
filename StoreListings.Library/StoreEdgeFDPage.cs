@@ -286,7 +286,11 @@ public class StoreEdgeFDPage
         }
 
         Image finalLogo =
-            logos.LastOrDefault(x => x.Height == 100)
+            logos.LastOrDefault(x => x.Height == 300 && x.Width == 300)
+            ?? logos
+                .Where(x => x.Height == x.Width)
+                .OrderByDescending(x => x.Height)
+                .FirstOrDefault()
             ?? logos.FirstOrDefault()
             ?? new Image(string.Empty, "Transparent", 0, 0);
 

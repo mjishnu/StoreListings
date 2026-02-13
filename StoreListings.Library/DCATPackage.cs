@@ -42,7 +42,8 @@ namespace StoreListings.Library
             string packageId,
             Market market,
             Lang lang,
-            bool includeNeutral
+            bool includeNeutral,
+            CancellationToken cancellationToken = default
         )
         {
             try
@@ -52,7 +53,7 @@ namespace StoreListings.Library
                     $"https://displaycatalog.mp.microsoft.com/v7.0/products/{packageId}?market={market}&languages={langList}";
 
                 HttpClient client = Helpers.GetStoreHttpClient();
-                using var response = await client.GetAsync(url);
+                using var response = await client.GetAsync(url, cancellationToken);
 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -62,7 +63,8 @@ namespace StoreListings.Library
                 }
 
                 using var doc = await JsonDocument.ParseAsync(
-                    await response.Content.ReadAsStreamAsync()
+                    await response.Content.ReadAsStreamAsync(cancellationToken),
+                    cancellationToken: cancellationToken
                 );
                 var root = doc.RootElement.GetProperty("Product");
 
@@ -202,14 +204,13 @@ namespace StoreListings.Library
             if (localizedProps == null)
                 return (defaultLogo, screens);
 
-            // Navigate safely: localizedProps is an Element, try get "Images" array from it
             if (
                 !localizedProps.Value.TryGetProperty("Images", out var images)
                 || images.ValueKind != JsonValueKind.Array
             )
                 return (defaultLogo, screens);
 
-            var logos = new List<Image>();
+            var logoCandidates = new List<Image>();
 
             foreach (var img in images.EnumerateArray())
             {
@@ -217,8 +218,16 @@ namespace StoreListings.Library
                 if (string.IsNullOrEmpty(uri))
                     continue;
 
+                if (uri.StartsWith("//"))
+                {
+                    uri = "https:" + uri;
+                }
+
                 string bg = img.GetStringSafe("BackgroundColor") ?? "Transparent";
-                if (!bg.StartsWith('#'))
+                if (
+                    !bg.StartsWith('#')
+                    && !bg.Equals("transparent", StringComparison.OrdinalIgnoreCase)
+                )
                     bg = "Transparent";
 
                 int h = img.GetIntSafe("Height");
@@ -227,16 +236,24 @@ namespace StoreListings.Library
 
                 var imageObj = new Image(uri, bg, h, w);
 
-                if (purpose.Contains("Logo", StringComparison.OrdinalIgnoreCase))
-                    logos.Add(imageObj);
-                else
+                if (string.Equals(purpose, "Screenshot", StringComparison.OrdinalIgnoreCase))
+                {
                     screens.Add(imageObj);
+                }
+                else
+                {
+                    logoCandidates.Add(imageObj);
+                }
             }
 
-            var finalLogo =
-                logos.LastOrDefault(i => i.Height == 100 && i.Width == 100)
-                ?? logos.FirstOrDefault()
-                ?? defaultLogo;
+            Image finalLogo =
+                logoCandidates.LastOrDefault(x => x.Height == 300 && x.Width == 300)
+                ?? logoCandidates
+                    .Where(x => x.Height == x.Width)
+                    .OrderByDescending(x => x.Height)
+                    .FirstOrDefault()
+                ?? logoCandidates.FirstOrDefault()
+                ?? new Image(string.Empty, "Transparent", 0, 0);
 
             return (finalLogo, screens);
         }
