@@ -191,27 +191,31 @@ public class StoreEdgeFDPage
             // Try to find version at root first
             string? version = root.GetStringSafe("Version");
 
-            // If empty, and type is unpackaged, try to dig into Architectures to find specific version
+            // If empty, and type is unpackaged, dig into Architectures to find the best matching version
             if (
                 string.IsNullOrEmpty(version)
+                && installerType == InstallerType.Unpackaged
                 && root.TryGetProperty("Installer", out JsonElement installerObj)
                 && installerObj.TryGetProperty("Architectures", out JsonElement architecturesObj)
             )
             {
-                // Try requested architecture, fallback to x64, then x86
-                if (
-                    architecturesObj.TryGetProperty(
-                        architecture.ToString(),
-                        out JsonElement archData
-                    )
-                    || architecturesObj.TryGetProperty("neutral", out archData)
-                    || architecturesObj.TryGetProperty("x86", out archData)
-                    || architecturesObj.TryGetProperty("x64", out archData)
-                )
+                // Determine priority list based on requested architecture (excluding neutral)
+                string[] priorities = GetUnpackagedArchPriorities(architecture.ToString());
+
+                foreach (var archKey in priorities)
                 {
-                    if (archData.ValueKind == JsonValueKind.Object)
+                    // Check if the JSON has an entry for this architecture (e.g. "x64", "arm64")
+                    if (
+                        architecturesObj.TryGetProperty(archKey, out JsonElement archData)
+                        && archData.ValueKind == JsonValueKind.Object
+                    )
                     {
-                        version = archData.GetStringSafe("Version");
+                        string? candidateVer = archData.GetStringSafe("Version");
+                        if (!string.IsNullOrEmpty(candidateVer))
+                        {
+                            version = candidateVer;
+                            break; // Found the best match, stop looking
+                        }
                     }
                 }
             }
@@ -244,6 +248,17 @@ public class StoreEdgeFDPage
     // ---------------------------------------------------------
     // HELPERS
     // ---------------------------------------------------------
+    private static string[] GetUnpackagedArchPriorities(string arch)
+    {
+        return arch.ToLowerInvariant() switch
+        {
+            "arm64" => new[] { "arm64", "arm", "x64", "x86" },
+            "x64" => new[] { "x64", "x86" },
+            "x86" => new[] { "x86" },
+            "arm" => new[] { "arm" },
+            _ => new[] { arch.ToLowerInvariant() },
+        };
+    }
 
     private static (Image Logo, List<Image> Screenshots) ExtractImages(JsonElement payload)
     {
