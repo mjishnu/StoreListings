@@ -145,14 +145,7 @@ public class StoreEdgeFDPage
             string id = root.GetStringSafe("ProductId");
             string title = root.GetStringSafe("Title");
             string publisher = root.GetStringSafe("PublisherName");
-            string description = root.GetStringSafe("Description");
-            string shortDescription = root.GetStringSafe("ShortDescription");
-
-            if (string.IsNullOrWhiteSpace(shortDescription))
-            {
-                shortDescription = ExtractShortDescription(description);
-            }
-
+            var (shortDescription, description) = Helpers.ProcessDescriptions(root);
             double rating = root.GetDoubleSafe("AverageRating");
             long ratingCount = root.GetLongSafe("RatingCount");
             long? size = root.TryGetProperty("ApproximateSizeInBytes", out var sizeEl)
@@ -310,21 +303,6 @@ public class StoreEdgeFDPage
             ?? new Image(string.Empty, "Transparent", 0, 0);
 
         return (finalLogo, screenshots);
-    }
-
-    private static string ExtractShortDescription(string fullDesc)
-    {
-        if (string.IsNullOrWhiteSpace(fullDesc))
-            return string.Empty;
-
-        int idx = fullDesc.IndexOfAny(new[] { '\r', '\n' });
-        if (idx > 0)
-            return fullDesc[..idx];
-
-        if (fullDesc.Length > 150)
-            return fullDesc[..150] + "...";
-
-        return fullDesc;
     }
 
     private static InstallerType DetermineInstallerType(string? type)

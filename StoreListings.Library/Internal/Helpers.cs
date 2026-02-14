@@ -265,4 +265,45 @@ internal static class Helpers
             })
             .ToList();
     }
+
+    public static (string Short, string Full) ProcessDescriptions(JsonElement? payload)
+    {
+        string shortDesc = payload?.GetStringSafe("ShortDescription") ?? string.Empty;
+        string fullDesc = string.Empty;
+
+        string? desc1 = payload?.GetStringSafe("Description");
+        string? desc2 = payload?.GetStringSafe("ProductDescription");
+
+        if (!string.IsNullOrEmpty(desc1))
+        {
+            fullDesc = desc1;
+        }
+        else if (!string.IsNullOrEmpty(desc2))
+        {
+            fullDesc = desc2;
+        }
+
+        if (string.IsNullOrEmpty(shortDesc) && !string.IsNullOrEmpty(fullDesc))
+        {
+            int limitIndex = fullDesc.IndexOf("\r\n");
+
+            if (limitIndex == -1)
+                limitIndex = fullDesc.IndexOf('\n');
+
+            if (limitIndex == -1)
+            {
+                int periodIndex = fullDesc.IndexOf('.');
+
+                if (periodIndex != -1)
+                    limitIndex = periodIndex + 1;
+            }
+
+            if (limitIndex != -1)
+            {
+                shortDesc = fullDesc[..limitIndex];
+            }
+        }
+
+        return (shortDesc, fullDesc);
+    }
 }

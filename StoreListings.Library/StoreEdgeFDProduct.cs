@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.InteropServices;
 using System.Text.Json;
 using StoreListings.Library.Internal;
 
@@ -120,7 +119,7 @@ public class StoreEdgeFDProduct
             long ratingCount = payload.GetLongSafe("RatingCount");
             long size = payload.GetLongSafe("ApproximateSizeInBytes");
             var (logo, screenshots) = ExtractImages(payload);
-            var (shortDesc, fullDesc) = ProcessDescriptions(payload);
+            var (shortDesc, fullDesc) = Helpers.ProcessDescriptions(payload);
             InstallerType installerType = DetermineInstallerType(
                 payload.GetPropertySafe("Installer").GetStringSafe("Type")
             );
@@ -212,36 +211,6 @@ public class StoreEdgeFDProduct
             ?? new Image(string.Empty, "Transparent", 0, 0);
 
         return (finalLogo, screenshots);
-    }
-
-    private static (string Short, string Full) ProcessDescriptions(JsonElement payload)
-    {
-        string shortDesc = payload.GetStringSafe("ShortDescription") ?? string.Empty;
-
-        string fullDesc = payload.GetStringSafe("Description") ?? string.Empty;
-
-        if (string.IsNullOrEmpty(shortDesc) && !string.IsNullOrEmpty(fullDesc))
-        {
-            int limitIndex = fullDesc.IndexOf("\r\n");
-
-            if (limitIndex == -1)
-                limitIndex = fullDesc.IndexOf('\n');
-
-            if (limitIndex == -1)
-            {
-                int periodIndex = fullDesc.IndexOf('.');
-
-                if (periodIndex != -1)
-                    limitIndex = periodIndex + 1;
-            }
-
-            if (limitIndex != -1)
-            {
-                shortDesc = fullDesc[..limitIndex];
-            }
-        }
-
-        return (shortDesc, fullDesc);
     }
 
     private static InstallerType DetermineInstallerType(string? type) =>

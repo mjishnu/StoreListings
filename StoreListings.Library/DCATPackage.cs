@@ -30,6 +30,7 @@ namespace StoreListings.Library
         public required long RatingCount { get; set; }
         public required Image Logo { get; set; }
         public required List<Image> Screenshots { get; set; }
+        public string? PackageFullName { get; set; }
         public string? WuCategoryId { get; set; }
         public Version? AppVersion { get; set; }
         public long? Size { get; set; }
@@ -77,9 +78,7 @@ namespace StoreListings.Library
                 var rootProps = root.GetPropertySafe("Properties");
                 string productId = root.GetStringSafe("ProductId");
                 string title = localizedProps?.GetStringSafe("ProductTitle") ?? "Unknown Title";
-                string shortDesc =
-                    localizedProps?.GetStringSafe("ShortDescription") ?? string.Empty;
-                string desc = localizedProps?.GetStringSafe("ProductDescription") ?? string.Empty;
+                var (shortDesc, desc) = Helpers.ProcessDescriptions(localizedProps);
                 string publisher =
                     localizedProps?.GetStringSafe("PublisherName")
                     ?? rootProps.GetStringSafe("PublisherName")
@@ -122,6 +121,7 @@ namespace StoreListings.Library
                     Logo = logo,
                     Screenshots = screenshots,
                     // Nullables
+                    PackageFullName = null,
                     WuCategoryId = null,
                     AppVersion = null,
                     Size = null,
@@ -145,6 +145,7 @@ namespace StoreListings.Library
                         foreach (var pkgJson in packagesJson.EnumerateArray())
                         {
                             var fulfillment = pkgJson.GetPropertySafe("FulfillmentData");
+                            var packageFullName = pkgJson.GetStringSafe("PackageFullName");
 
                             // Size Logic
                             long? size = pkgJson.GetLongSafe("MaxDownloadSizeInBytes");
@@ -176,6 +177,7 @@ namespace StoreListings.Library
                                 Screenshots = basePackage.Screenshots,
 
                                 // Specific Nullables
+                                PackageFullName = packageFullName,
                                 WuCategoryId = fulfillment.GetStringSafe("WuCategoryId"),
                                 Size = size,
                                 AppVersion = finalVersion,

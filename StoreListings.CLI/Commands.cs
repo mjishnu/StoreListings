@@ -606,6 +606,7 @@ public class Commands
                 WriteField("Size", package.Size?.ToString() ?? "Missing");
                 WriteField("Is Bundle", package.IsBundle.ToString());
                 WriteField("Package Family Name", package.PackageFamilyName ?? "Missing");
+                WriteField("Package Name", package.PackageFullName ?? "Missing");
                 WriteField("Logo", package.Logo?.Url ?? "Missing");
                 WriteField("Screenshots", package.Screenshots.Count.ToString());
                 foreach (var screenshot in package.Screenshots)
