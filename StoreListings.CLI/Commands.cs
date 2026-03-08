@@ -699,4 +699,66 @@ public class Commands
             Console.WriteLine(result.Exception);
         }
     }
+
+    /// <summary>
+    /// Query multiple products by ID type from Microsoft Store.
+    /// </summary>
+    /// <param name="idType">The type of product ID (e.g. ProductId, LegacyId, etc).</param>
+    /// <param name="productIds">A list of product IDs to query.</param>
+    /// <param name="deviceFamily">-d, The device family.</param>
+    /// <param name="market">-m, The store market/region to query from.</param>
+    /// <param name="language">-l, The language, for listings that use localization.</param>
+    public async Task QueryProductsByIdType(
+        [Argument] StoreIdType idType,
+        [Argument] string productIds,
+        CancellationToken cancellationToken,
+        DeviceFamily deviceFamily = DeviceFamily.Desktop,
+        Market market = Market.US,
+        Lang language = Lang.en
+    )
+    {
+        var productIdList = productIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        WriteLoadingProgressBar();
+        var result = await StoreEdgeFDProduct.GetProductsByIdTypeAsync(
+            productIdList,
+            idType,
+            deviceFamily,
+            market,
+            language,
+            cancellationToken
+        );
+        HideProgressBar();
+        if (result.IsSuccess)
+        {
+            foreach (var product in result.Value)
+            {
+                WriteField("Product ID", product.ProductId);
+                WriteField("Title", product.Title);
+                WriteField("Publisher", product.PublisherName);
+                WriteField("Revision ID", product.RevisionId);
+                WriteField("Average rating", product.Rating.ToString());
+                WriteField("Rating count", product.RatingCount.ToString());
+                WriteField("Size", product.Size.ToString());
+                WriteField("Is Bundle", product.IsBundle.ToString());
+                WriteField("Installer Type", product.InstallerType.ToString());
+                WriteField("Logo", product.Logo.Url);
+                WriteField("Screenshots", product.Screenshots.Count.ToString());
+                foreach (var screenshot in product.Screenshots)
+                {
+                    Console.WriteLine(screenshot.Url);
+                }
+                if (!string.IsNullOrEmpty(product.ShortDescription))
+                    WriteField("Short Description", product.ShortDescription);
+                if (!string.IsNullOrEmpty(product.Description))
+                    WriteField("Description", product.Description);
+                if (!string.IsNullOrEmpty(product.PackageFamilyName))
+                    WriteField("Package Family Name", product.PackageFamilyName);
+                Console.WriteLine();
+            }
+        }
+        else
+        {
+            Console.WriteLine(result.Exception);
+        }
+    }
 }

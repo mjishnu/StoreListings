@@ -112,9 +112,9 @@ public class StoreEdgeFDProduct
             JsonElement payload = jsondoc.RootElement.GetPropertySafe("Payload");
 
             string id = payload.GetStringSafe("ProductId") ?? productId;
-            string title = payload.GetStringSafe("Title") ?? string.Empty;
-            string publisher = payload.GetStringSafe("PublisherName") ?? string.Empty;
-            string revisionId = payload.GetStringSafe("RevisionId") ?? string.Empty;
+            string title = payload.GetStringSafe("Title");
+            string publisher = payload.GetStringSafe("PublisherName");
+            string revisionId = payload.GetStringSafe("RevisionId");
             double rating = payload.GetDoubleSafe("AverageRating");
             long ratingCount = payload.GetLongSafe("RatingCount");
             long size = payload.GetLongSafe("ApproximateSizeInBytes");
@@ -211,6 +211,130 @@ public class StoreEdgeFDProduct
             ?? new Image(string.Empty, "Transparent", 0, 0);
 
         return (finalLogo, screenshots);
+    }
+
+    public static async Task<Result<List<StoreEdgeFDProduct>>> GetProductsByIdTypeAsync(
+        List<string> productIds,
+        StoreIdType idType,
+        DeviceFamily deviceFamily,
+        Market market,
+        Lang language,
+        CancellationToken cancellationToken = default
+    )
+    {
+        HttpClient client = Helpers.GetStoreHttpClient();
+
+        try
+        {
+            string url =
+                $"https://storeedge.microsoft.com/v9.0/products?market={market}&locale={language}-{market}&deviceFamily=Windows.{deviceFamily}";
+
+            using var stream = new System.IO.MemoryStream();
+            using (var writer = new System.Text.Json.Utf8JsonWriter(stream))
+            {
+                writer.WriteStartObject();
+                writer.WriteString("IdType", idType.ToString());
+                writer.WriteStartArray("ProductIds");
+                foreach (var id in productIds)
+                    writer.WriteStringValue(id);
+                writer.WriteEndArray();
+                writer.WriteEndObject();
+            }
+            string jsonBody = System.Text.Encoding.UTF8.GetString(stream.ToArray());
+            using StringContent content = new StringContent(
+                jsonBody,
+                System.Text.Encoding.UTF8,
+                "application/json"
+            );
+
+            using HttpResponseMessage response = await client.PostAsync(
+                url,
+                content,
+                cancellationToken
+            );
+
+            if (!response.IsSuccessStatusCode)
+            {
+                try
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                    return Result<List<StoreEdgeFDProduct>>.Failure(
+                        new Exception($"API Error {response.StatusCode}: {errorContent}")
+                    );
+                }
+                catch
+                {
+                    response.EnsureSuccessStatusCode();
+                }
+            }
+
+            using JsonDocument jsondoc = await JsonDocument.ParseAsync(
+                await response.Content.ReadAsStreamAsync(cancellationToken),
+                cancellationToken: cancellationToken
+            );
+
+            JsonElement payload = jsondoc.RootElement.GetPropertySafe("Payload");
+
+            var productsList = new List<StoreEdgeFDProduct>();
+
+            // Iterate through the array.
+            // This naturally preserves the order returned by the API.
+            foreach (JsonElement productData in payload.GetArraySafe("Products").EnumerateArray())
+            {
+                string id = productData.GetStringSafe("ProductId");
+                string title = productData.GetStringSafe("Title");
+                string publisher = productData.GetStringSafe("PublisherName");
+                var (shortDesc, fullDesc) = Helpers.ProcessDescriptions(productData);
+                string revisionId = payload.GetStringSafe("RevisionId");
+
+                double rating = productData.GetDoubleSafe("AverageRating");
+                long ratingCount = productData.GetLongSafe("RatingCount");
+                long size = productData.GetLongSafe("ApproximateSizeInBytes");
+
+                var (logo, screenshots) = ExtractImages(productData);
+
+                InstallerType installerType = DetermineInstallerType(
+                    productData.GetStringSafe("InstallerType")
+                );
+
+                bool isBundle = false;
+                if (productData.TryGetProperty("BundleIds", out JsonElement bundlesProperty))
+                {
+                    isBundle =
+                        bundlesProperty.ValueKind == JsonValueKind.Array
+                        && bundlesProperty.GetArrayLength() > 0;
+                }
+
+                string? pfn = productData
+                    .GetFirstArrayElementOrNull("PackageFamilyNames")
+                    ?.GetString();
+
+                productsList.Add(
+                    new StoreEdgeFDProduct(
+                        id,
+                        title,
+                        logo,
+                        screenshots,
+                        shortDesc,
+                        fullDesc,
+                        publisher,
+                        revisionId,
+                        rating,
+                        ratingCount,
+                        size,
+                        installerType,
+                        isBundle,
+                        pfn
+                    )
+                );
+            }
+
+            return Result<List<StoreEdgeFDProduct>>.Success(productsList);
+        }
+        catch (Exception ex)
+        {
+            return Result<List<StoreEdgeFDProduct>>.Failure(ex);
+        }
     }
 
     private static InstallerType DetermineInstallerType(string? type) =>

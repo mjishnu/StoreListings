@@ -1,6 +1,15 @@
 ﻿namespace StoreListings.Library;
 
 /// <summary>
+/// Represents different types of store identifiers.
+/// </summary>
+public enum StoreIdType
+{
+    ProductId,
+    PackageFamilyName,
+}
+
+/// <summary>
 /// Represents diffrent device architecure for FE3.
 /// </summary>
 ///
