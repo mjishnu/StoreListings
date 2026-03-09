@@ -165,7 +165,7 @@ public class StoreEdgeFDProduct
     private static (Image Logo, List<Image> Screenshots) ExtractImages(JsonElement payload)
     {
         var logos = new List<Image>();
-
+        var tileImages = new List<Image>();
         var screenshots = new List<Image>();
 
         if (payload.TryGetProperty("Images", out JsonElement images))
@@ -202,12 +202,18 @@ public class StoreEdgeFDProduct
                 {
                     screenshots.Add(imageObj);
                 }
+                else
+                {
+                    tileImages.Add(imageObj);
+                }
             }
         }
 
         Image finalLogo =
             logos.LastOrDefault(img => img.Height == 100 && img.Width == 100)
             ?? logos.FirstOrDefault()
+            ?? tileImages.FirstOrDefault(img => img.Height == img.Width)
+            ?? tileImages.FirstOrDefault()
             ?? new Image(string.Empty, "Transparent", 0, 0);
 
         return (finalLogo, screenshots);
