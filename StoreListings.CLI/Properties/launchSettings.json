@@ -2,7 +2,7 @@
   "profiles": {
     "StoreListings.CLI": {
       "commandName": "Project",
-      "commandLineArgs": "query-products-by-id-type ProductId 9nxp44l49shj,9NBLGGH2JHXJ"
+      "commandLineArgs": "query-multiple-packages 9WZDNCRDK3WP,9NBLGGH2JHXJ"
     }
   }
 }

@@ -1,4 +1,5 @@
-﻿using ConsoleAppFramework;
+﻿using System.Linq;
+using ConsoleAppFramework;
 using StoreListings.Library;
 using static StoreListings.CLI.Helpers;
 
@@ -717,7 +718,9 @@ public class Commands
         Lang language = Lang.en
     )
     {
-        var productIdList = productIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        var productIdList = productIds
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
         WriteLoadingProgressBar();
         var result = await StoreEdgeFDProduct.GetProductsByIdTypeAsync(
             productIdList,
@@ -754,6 +757,95 @@ public class Commands
                 if (!string.IsNullOrEmpty(product.PackageFamilyName))
                     WriteField("Package Family Name", product.PackageFamilyName);
                 Console.WriteLine();
+            }
+        }
+        else
+        {
+            Console.WriteLine(result.Exception);
+        }
+    }
+
+    /// <summary>
+    /// Query multiple packages from the Display Catalog using a comma-separated list of package IDs.
+    /// </summary>
+    /// <param name="packageIds">A list of package IDs to query (comma-separated).</param>
+    /// <param name="market">-m, The store market/region to query from.</param>
+    /// <param name="language">-l, The language, for listings that use localization.</param>
+    public async Task QueryMultiplePackages(
+        [Argument] string packageIds,
+        CancellationToken cancellationToken,
+        Market market = Market.US,
+        Lang language = Lang.en
+    )
+    {
+        var packageIdList = packageIds
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+        WriteLoadingProgressBar();
+        Result<IEnumerable<DCATPackage.DCATProduct>> result =
+            await DCATPackage.GetMultiplePackagesAsync(
+                packageIdList,
+                market,
+                language,
+                true,
+                cancellationToken
+            );
+        HideProgressBar();
+        if (result.IsSuccess)
+        {
+            var products = result.Value.ToList();
+            var productCount = products.Count;
+            var packageCount = products
+                .SelectMany(p => p.Packages ?? Enumerable.Empty<DCATPackage>())
+                .Count();
+            Console.WriteLine($"products: {productCount}, packages: {packageCount}");
+
+            foreach (var product in products)
+            {
+                WriteField("Product ID", product.ProductId ?? "Missing");
+                foreach (var package in product.Packages ?? Enumerable.Empty<DCATPackage>())
+                {
+                    WriteField("Title", package.Title ?? "Missing");
+                    WriteField("Short Description", package.ShortDescription ?? "Missing");
+                    WriteField("Description", package.Description ?? "Missing");
+                    WriteField("Publisher", package.PublisherName ?? "Missing");
+                    WriteField("Revision ID", package.RevisionId ?? "Missing");
+                    WriteField("Average rating", package.Rating.ToString() ?? "Missing");
+                    WriteField("Rating count", package.RatingCount.ToString() ?? "Missing");
+                    WriteField("Size", package.Size?.ToString() ?? "Missing");
+                    WriteField("Is Bundle", package.IsBundle.ToString());
+                    WriteField("Package Family Name", package.PackageFamilyName ?? "Missing");
+                    WriteField("Package Name", package.PackageFullName ?? "Missing");
+                    WriteField("Logo", package.Logo?.Url ?? "Missing");
+                    WriteField("Screenshots", package.Screenshots.Count.ToString());
+                    foreach (var screenshot in package.Screenshots)
+                    {
+                        Console.WriteLine(screenshot.Url);
+                    }
+                    WriteField("Version", package.AppVersion?.ToString() ?? "Missing");
+                    WriteField("WuCategoryId", package.WuCategoryId);
+                    WriteField(
+                        "Platform Dependencies",
+                        string.Join(
+                            ", ",
+                            (
+                                package.PlatformDependencies
+                                ?? Enumerable.Empty<DCATPackage.PlatformDependency>()
+                            ).Select(p => $"{p.Platform}: {p.MinVersion}")
+                        )
+                    );
+                    WriteField(
+                        "Framework Dependencies",
+                        string.Join(
+                            ", ",
+                            (
+                                package.FrameworkDependencies
+                                ?? Enumerable.Empty<DCATPackage.FrameworkDependency>()
+                            ).Select(f => $"{f.PackageIdentity}: {f.MinVersion}")
+                        )
+                    );
+                    Console.WriteLine();
+                }
             }
         }
         else

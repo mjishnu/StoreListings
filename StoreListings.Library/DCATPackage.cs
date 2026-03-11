@@ -17,6 +17,12 @@ namespace StoreListings.Library
             public required Version MinVersion { get; set; }
         }
 
+        public class DCATProduct
+        {
+            public required string ProductId { get; set; }
+            public required IEnumerable<DCATPackage> Packages { get; set; }
+        }
+
         public required string ProductId { get; set; }
         public required string Title { get; set; }
         public required string Description { get; set; }
@@ -194,6 +200,196 @@ namespace StoreListings.Library
             catch (Exception ex)
             {
                 return Result<IEnumerable<DCATPackage>>.Failure(ex);
+            }
+        }
+
+        /// <summary>
+        /// Bulk Entry Point for multiple Package IDs grouped by Product
+        /// </summary>
+        public static async Task<Result<IEnumerable<DCATProduct>>> GetMultiplePackagesAsync(
+            IEnumerable<string> packageIds,
+            Market market,
+            Lang lang,
+            bool includeNeutral,
+            CancellationToken cancellationToken = default
+        )
+        {
+            try
+            {
+                var langList = $"{lang}-{market},{lang}{(includeNeutral ? ",neutral" : "")}";
+                var bigIds = string.Join(",", packageIds);
+                var url =
+                    $"https://displaycatalog.mp.microsoft.com/v7/products?market={market}&languages={langList}&bigIds={bigIds}";
+
+                HttpClient client = Helpers.GetStoreHttpClient();
+                using var response = await client.GetAsync(url, cancellationToken);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    return Result<IEnumerable<DCATProduct>>.Failure(
+                        new Exception($"Store API returned {response.StatusCode}")
+                    );
+                }
+
+                using var doc = await JsonDocument.ParseAsync(
+                    await response.Content.ReadAsStreamAsync(cancellationToken),
+                    cancellationToken: cancellationToken
+                );
+
+                var resultList = new List<DCATProduct>();
+
+                // Safely check if the "Products" array exists in the response
+                if (
+                    !doc.RootElement.TryGetProperty("Products", out var productsArray)
+                    || productsArray.ValueKind != JsonValueKind.Array
+                )
+                {
+                    return Result<IEnumerable<DCATProduct>>.Success(resultList);
+                }
+
+                foreach (var productNode in productsArray.EnumerateArray())
+                {
+                    // --------------------------------------------------
+                    // PHASE 1: PARSE COMMON DATA
+                    // --------------------------------------------------
+                    var localizedProps = productNode.GetFirstArrayElementOrNull(
+                        "LocalizedProperties"
+                    );
+                    var marketProps = productNode.GetFirstArrayElementOrNull("MarketProperties");
+                    var rootProps = productNode.GetPropertySafe("Properties");
+                    string productId = productNode.GetStringSafe("ProductId");
+                    string title = localizedProps?.GetStringSafe("ProductTitle") ?? "Unknown Title";
+                    var (shortDesc, desc) = Helpers.ProcessDescriptions(localizedProps);
+                    string publisher =
+                        localizedProps?.GetStringSafe("PublisherName")
+                        ?? rootProps.GetStringSafe("PublisherName")
+                        ?? "Unknown Publisher";
+                    string revisionId =
+                        productNode.GetStringSafe("LastModifiedDate")
+                        ?? rootProps.GetStringSafe("RevisionId")
+                        ?? string.Empty;
+                    string packageFamily = rootProps.GetStringSafe("PackageFamilyName");
+                    string packageIdentityName = rootProps.GetStringSafe("PackageIdentityName");
+
+                    // Complex Types (Helpers handle defaults)
+                    var (logo, screenshots) = ParseImages(localizedProps);
+                    var (rating, ratingCount) = ParseRatings(marketProps, rootProps);
+
+                    // List to hold the specific packages for this ProductId
+                    var packagesForProduct = new List<DCATPackage>();
+
+                    // --------------------------------------------------
+                    // PHASE 2: DETERMINE TYPE (Bundle vs Package)
+                    // --------------------------------------------------
+                    if (
+                        !productNode.TryGetProperty("DisplaySkuAvailabilities", out var displaySkus)
+                        || displaySkus.GetArrayLength() == 0
+                    )
+                    {
+                        continue; // Skip if no SKUs are available
+                    }
+
+                    var displaySku = displaySkus[0];
+                    var sku = displaySku.GetProperty("Sku");
+                    var skuProps = sku.GetProperty("Properties");
+                    bool isBundle = skuProps.GetBoolSafe("IsBundle");
+
+                    // Base object template
+                    var basePackage = new DCATPackage
+                    {
+                        ProductId = productId,
+                        Title = title,
+                        Description = desc,
+                        ShortDescription = shortDesc,
+                        PublisherName = publisher,
+                        RevisionId = revisionId,
+                        PackageFamilyName = packageFamily,
+                        PackageIdentityName = packageIdentityName,
+                        IsBundle = isBundle,
+                        Rating = rating,
+                        RatingCount = ratingCount,
+                        Logo = logo,
+                        Screenshots = screenshots,
+                        // Nullables
+                        PackageFullName = null,
+                        WuCategoryId = null,
+                        AppVersion = null,
+                        Size = null,
+                        FrameworkDependencies = null,
+                        PlatformDependencies = null,
+                    };
+
+                    if (isBundle)
+                    {
+                        // === BUNDLE LOGIC ===
+                        packagesForProduct.Add(basePackage);
+                    }
+                    else
+                    {
+                        // === PACKAGE LOGIC ===
+                        if (
+                            skuProps.TryGetProperty("Packages", out var packagesJson)
+                            && packagesJson.ValueKind == JsonValueKind.Array
+                        )
+                        {
+                            foreach (var pkgJson in packagesJson.EnumerateArray())
+                            {
+                                var fulfillment = pkgJson.GetPropertySafe("FulfillmentData");
+                                var packageFullName = pkgJson.GetStringSafe("PackageFullName");
+
+                                // Size Logic
+                                long? size = pkgJson.GetLongSafe("MaxDownloadSizeInBytes");
+
+                                // Version Logic (Using ulong parsing for WindowsRepresentation)
+                                string? versionStr = pkgJson.GetStringSafe("Version");
+                                Version? finalVersion = null;
+                                if (ulong.TryParse(versionStr, out var vLong) && vLong != 0)
+                                {
+                                    finalVersion = Version.FromWindowsRepresentation(vLong);
+                                }
+
+                                // Create specific package instance
+                                var pkg = new DCATPackage
+                                {
+                                    // Copy Base Non-Nullables
+                                    ProductId = basePackage.ProductId,
+                                    Title = basePackage.Title,
+                                    Description = basePackage.Description,
+                                    ShortDescription = basePackage.ShortDescription,
+                                    PublisherName = basePackage.PublisherName,
+                                    RevisionId = basePackage.RevisionId,
+                                    PackageFamilyName = basePackage.PackageFamilyName,
+                                    PackageIdentityName = basePackage.PackageIdentityName,
+                                    IsBundle = false, // Explicitly false for items inside
+                                    Rating = basePackage.Rating,
+                                    RatingCount = basePackage.RatingCount,
+                                    Logo = basePackage.Logo,
+                                    Screenshots = basePackage.Screenshots,
+
+                                    // Specific Nullables
+                                    PackageFullName = packageFullName,
+                                    WuCategoryId = fulfillment.GetStringSafe("WuCategoryId"),
+                                    AppVersion = finalVersion,
+                                    Size = size,
+                                    PlatformDependencies = ParsePlatforms(pkgJson),
+                                    FrameworkDependencies = ParseFrameworks(pkgJson),
+                                };
+                                packagesForProduct.Add(pkg);
+                            }
+                        }
+                    }
+
+                    // Wrap the grouped packages and add to the final list
+                    resultList.Add(
+                        new DCATProduct { ProductId = productId, Packages = packagesForProduct }
+                    );
+                }
+
+                return Result<IEnumerable<DCATProduct>>.Success(resultList);
+            }
+            catch (Exception ex)
+            {
+                return Result<IEnumerable<DCATProduct>>.Failure(ex);
             }
         }
 
