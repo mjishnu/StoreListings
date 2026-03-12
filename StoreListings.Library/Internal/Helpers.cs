@@ -145,15 +145,23 @@ internal static class Helpers
         _storeHttpClient.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("*/*")
         );
-        _storeHttpClient.DefaultRequestHeaders.AcceptLanguage.Add(
-            new StringWithQualityHeaderValue("en-US")
-        );
         _storeHttpClient.DefaultRequestHeaders.Add("User-Agent", "WindowsStore/22512.1401.1101.0");
-
         _storeHttpClient.DefaultRequestHeaders.Add("MS-CV", CorrelationVector.Increment());
         _storeHttpClient.DefaultRequestHeaders.Add("OSIsGenuine", "True");
         _storeHttpClient.DefaultRequestHeaders.Add("OSIsSMode", "False");
         return _storeHttpClient;
+    }
+
+    internal static void UpdateAcceptLanguage(string locale)
+    {
+        var client = _storeHttpClient;
+        if (client == null)
+            return;
+        client.DefaultRequestHeaders.AcceptLanguage.Clear();
+        if (!string.IsNullOrEmpty(locale))
+            client.DefaultRequestHeaders.AcceptLanguage.Add(
+                new StringWithQualityHeaderValue(locale)
+            );
     }
 
     public static HttpClient GetFE3StoreHttpClient()
