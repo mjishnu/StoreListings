@@ -17,6 +17,15 @@ public class StoreEdgeFDQuery
         Cards = cards;
     }
 
+    /// <summary>
+    /// Updates the <c>Accept-Language</c> header on the shared Store HTTP client so that
+    /// search and recommendation endpoints return content in the requested locale.
+    /// Call this whenever the user changes their in-app language or market setting.
+    /// </summary>
+    /// <param name="locale">A BCP 47 tag such as <c>en-US</c> or <c>de-DE</c>.</param>
+    public static void SetClientLocale(string locale) =>
+        Helpers.UpdateAcceptLanguage(locale);
+
     public static async Task<Result<StoreEdgeFDQuery>> GetRecommendations(
         Category category,
         DeviceFamily deviceFamily,
