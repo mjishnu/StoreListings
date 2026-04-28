@@ -9,30 +9,69 @@ namespace StoreListings.Library;
 /// </summary>
 public class StoreEdgeFDProduct
 {
+    /// <summary>
+    /// The Store product ID.
+    /// </summary>
     public required string ProductId { get; set; }
 
+    /// <summary>
+    /// The listing title.
+    /// </summary>
     public required string Title { get; set; }
 
+    /// <summary>
+    /// The short listing description, if available.
+    /// </summary>
     public required string ShortDescription { get; set; }
 
+    /// <summary>
+    /// The full listing description, if available.
+    /// </summary>
     public required string Description { get; set; }
 
+    /// <summary>
+    /// The publisher name.
+    /// </summary>
     public required string PublisherName { get; set; }
 
+    /// <summary>
+    /// The list of screenshots.
+    /// </summary>
     public required List<Image> Screenshots { get; set; }
 
+    /// <summary>
+    /// The logo image.
+    /// </summary>
     public required Image Logo { get; set; }
 
+    /// <summary>
+    /// last updated date.
+    /// </summary>
     public required string RevisionId { get; set; }
 
+    /// <summary>
+    /// The product rating.
+    /// </summary>
     public required double Rating { get; set; }
 
+    /// <summary>
+    /// The number of ratings.
+    /// </summary>
     public required long RatingCount { get; set; }
 
+    /// <summary>
+    /// The size of the product.
+    /// </summary>
     public required long Size { get; set; }
 
+    /// <summary>
+    /// Indicates if the product is a bundle.
+    /// </summary>
     public required bool IsBundle { get; set; }
 
+    /// <summary>
+    /// The installer type.
+    /// </summary>
     public required InstallerType InstallerType { get; set; }
 
     public string? PackageFamilyName { get; set; }
