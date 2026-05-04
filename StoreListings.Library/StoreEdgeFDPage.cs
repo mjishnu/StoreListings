@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using StoreListings.Library.Internal;
 
@@ -245,10 +245,10 @@ public class StoreEdgeFDPage
     {
         return arch.ToLowerInvariant() switch
         {
-            "arm64" => new[] { "arm64", "arm", "x64", "x86" },
+            "arm64" => new[] { "arm64", "x64", "x86" },
             "x64" => new[] { "x64", "x86" },
             "x86" => new[] { "x86" },
-            "arm" => new[] { "arm" },
+
             _ => new[] { arch.ToLowerInvariant() },
         };
     }

@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using ConsoleAppFramework;
 using StoreListings.Library;
 using static StoreListings.CLI.Helpers;
@@ -649,7 +649,7 @@ public class Commands
     /// Query a product page details from Microsoft Store.
     /// </summary>
     /// <param name="productId">The product ID of the product to query.</param>
-    /// <param name="architecture">The architecture (e.g. x64, x86, arm, arm64).</param>
+    /// <param name="architecture">The architecture (e.g. x64, x86, arm64).</param>
     /// <param name="market">-m, The store market/region to query from.</param>
     /// <param name="language">-l, The language, for listings that use localization.</param>
     public async Task QueryPage(

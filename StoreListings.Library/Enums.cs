@@ -1,4 +1,4 @@
-﻿namespace StoreListings.Library;
+namespace StoreListings.Library;
 
 /// <summary>
 /// Represents different types of store identifiers.
@@ -18,7 +18,6 @@ public enum FE3OSArch
     AMD64,
     X86,
     ARM64,
-    ARM,
 }
 
 /// <summary>
@@ -29,7 +28,6 @@ public enum StoreEdgeFDArch
 {
     X64,
     X86,
-    ARM,
     ARM64,
 }
 
