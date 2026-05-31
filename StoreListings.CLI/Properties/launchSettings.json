@@ -2,7 +2,7 @@
   "profiles": {
     "StoreListings.CLI": {
       "commandName": "Project",
-      "commandLineArgs": "query-multiple-packages 9WZDNCRDK3WP,9NBLGGH2JHXJ"
+      "commandLineArgs": "download 9NBLGGH2JHXJ"
     }
   }
 }

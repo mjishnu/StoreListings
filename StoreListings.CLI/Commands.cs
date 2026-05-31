@@ -310,19 +310,6 @@ public class Commands
                     return;
                 }
 
-                if (
-                    !packageResult.Value.Any(f =>
-                        f.PlatformDependencies.Any(f => f.MinVersion <= OSVersion.Value)
-                    )
-                )
-                {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("No applicable packages were found for your OS options.");
-                    Console.ResetColor();
-                    HideProgressBar();
-                    return;
-                }
-
                 Result<FE3Handler.Cookie> cookieResult = await FE3Handler.GetCookieAsync(
                     cancellationToken
                 );
@@ -381,6 +368,30 @@ public class Commands
 
                 int printedPackages = 0;
 
+                // FE3 is the source of truth for framework dependencies.
+                // Collect all framework packages returned by FE3, grouped by name at highest available version.
+                List<(
+                    FE3Handler.SyncUpdatesResponse.Update Update,
+                    string Url
+                )> frameworkDeps = updatesAndUrl
+                    .Where(dep =>
+                        dep.Update.IsFramework
+                        && dep.Update.TargetPlatforms.Any(platform =>
+                            platform.MinVersion <= OSVersion.Value
+                            && (
+                                platform.Family == DeviceFamily.Universal
+                                || platform.Family == deviceFamily
+                            )
+                        )
+                    )
+                    .GroupBy(f => f.Update.PackageIdentityName, StringComparer.OrdinalIgnoreCase)
+                    .SelectMany(g =>
+                        g.GroupBy(f => f.Update.Version)
+                         .OrderByDescending(vg => vg.Key)
+                         .First()
+                    )
+                    .ToList();
+
                 foreach (
                     (
                         FE3Handler.SyncUpdatesResponse.Update Update,
@@ -398,73 +409,6 @@ public class Commands
                     )
                         continue;
 
-                    bool frameworkDependencyApplicable = true;
-
-                    DCATPackage? package = packageResult.Value.FirstOrDefault(f =>
-                        f.PackageIdentityName.Equals(
-                            update.Update.PackageIdentityName,
-                            StringComparison.OrdinalIgnoreCase
-                        )
-                        && f.AppVersion == update.Update.Version
-                    );
-
-                    IEnumerable<(
-                        FE3Handler.SyncUpdatesResponse.Update Update,
-                        string Url
-                    )> dependencyList = Array.Empty<(
-                        FE3Handler.SyncUpdatesResponse.Update Update,
-                        string Url
-                    )>();
-
-                    if (package is not null)
-                    {
-                        dependencyList = new List<(
-                            FE3Handler.SyncUpdatesResponse.Update Update,
-                            string Url
-                        )>(package.PlatformDependencies.Count() * 4);
-
-                        foreach (
-                            DCATPackage.FrameworkDependency dependency in package.FrameworkDependencies
-                        )
-                        {
-                            var applicableDependencyFiles = updatesAndUrl.Where(dep =>
-                                dep.Update.PackageIdentityName.Equals(
-                                    dependency.PackageIdentity,
-                                    StringComparison.OrdinalIgnoreCase
-                                )
-                                && dep.Update.Version >= dependency.MinVersion
-                                && dep.Update.TargetPlatforms.Any(platform =>
-                                    platform.MinVersion <= OSVersion.Value
-                                    && (
-                                        platform.Family == DeviceFamily.Universal
-                                        || platform.Family == deviceFamily
-                                    )
-                                )
-                            );
-
-                            if (!applicableDependencyFiles.Any())
-                            {
-                                // The package has unapplicable dependency (meaning it's impossible to install the dependency), ignore the file;
-                                frameworkDependencyApplicable = false;
-                                break;
-                            }
-
-                            // Get the latest version of the dependency
-                            (
-                                (List<(FE3Handler.SyncUpdatesResponse.Update Update, string Url)>)
-                                    dependencyList
-                            ).AddRange(
-                                applicableDependencyFiles
-                                    .GroupBy(f => f.Update.Version)
-                                    .OrderByDescending(f => f.Key)
-                                    .First()
-                            );
-                        }
-
-                        if (!frameworkDependencyApplicable)
-                            continue; // There are unapplicable dependencies, ignore the file.
-                    }
-
                     printedPackages++;
 
                     Console.WriteLine();
@@ -476,7 +420,7 @@ public class Commands
                     Console.WriteLine(update.Url);
                     Console.WriteLine();
 
-                    if (package is not null)
+                    if (frameworkDeps.Count > 0)
                     {
                         Console.ForegroundColor = ConsoleColor.White;
                         Console.WriteLine("Dependencies:");
@@ -486,23 +430,15 @@ public class Commands
                             (
                                 FE3Handler.SyncUpdatesResponse.Update Update,
                                 string Url
-                            ) dependencyFile in dependencyList
+                            ) dep in frameworkDeps
                         )
                         {
                             Console.ForegroundColor = ConsoleColor.White;
-                            Console.WriteLine(dependencyFile.Update.FileName);
+                            Console.WriteLine(dep.Update.FileName);
                             Console.ResetColor();
-                            Console.WriteLine(dependencyFile.Url);
+                            Console.WriteLine(dep.Url);
                         }
                         Console.WriteLine();
-                        Console.ResetColor();
-                    }
-                    else
-                    {
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine(
-                            $"Failed to get dependencies for version {update.Update.Version}"
-                        );
                         Console.ResetColor();
                     }
 
