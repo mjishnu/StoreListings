@@ -368,35 +368,15 @@ public class Commands
 
                 int printedPackages = 0;
 
-                // FE3 is the source of truth for framework dependencies.
-                // Collect all framework packages returned by FE3, grouped by name at highest available version.
-                List<(
-                    FE3Handler.SyncUpdatesResponse.Update Update,
-                    string Url
-                )> frameworkDeps = updatesAndUrl
-                    .Where(dep =>
-                        dep.Update.IsFramework
-                        && dep.Update.TargetPlatforms.Any(platform =>
-                            platform.MinVersion <= OSVersion.Value
-                            && (
-                                platform.Family == DeviceFamily.Universal
-                                || platform.Family == deviceFamily
-                            )
-                        )
-                    )
-                    .GroupBy(f => f.Update.PackageIdentityName, StringComparer.OrdinalIgnoreCase)
-                    .SelectMany(g =>
-                        g.GroupBy(f => f.Update.Version)
-                         .OrderByDescending(vg => vg.Key)
-                         .First()
-                    )
-                    .ToList();
+                // FE3's bundle tree is the source of truth: each binary version declares
+                // its own exact framework dependencies. Map every package URL by UpdateID
+                // so resolved dependencies can be looked up.
+                Dictionary<string, string> urlByUpdateId = new(StringComparer.OrdinalIgnoreCase);
+                foreach (var (depUpdate, depUrl) in updatesAndUrl)
+                    urlByUpdateId.TryAdd(depUpdate.UpdateID, depUrl);
 
                 foreach (
-                    (
-                        FE3Handler.SyncUpdatesResponse.Update Update,
-                        string Url
-                    ) update in updatesAndUrl
+                    var update in updatesAndUrl
                         .Where(f => !f.Update.IsFramework)
                         .OrderByDescending(f => f.Update.Version)
                 )
@@ -420,23 +400,25 @@ public class Commands
                     Console.WriteLine(update.Url);
                     Console.WriteLine();
 
-                    if (frameworkDeps.Count > 0)
+                    // Resolve this exact binary's dependencies from the FE3 bundle tree.
+                    IReadOnlyList<FE3Handler.SyncUpdatesResponse.Update> dependencies =
+                        fe3sync.Value.ResolveDependencies(update.Update);
+
+                    if (dependencies.Count > 0)
                     {
                         Console.ForegroundColor = ConsoleColor.White;
                         Console.WriteLine("Dependencies:");
                         Console.WriteLine();
 
-                        foreach (
-                            (
-                                FE3Handler.SyncUpdatesResponse.Update Update,
-                                string Url
-                            ) dep in frameworkDeps
-                        )
+                        foreach (FE3Handler.SyncUpdatesResponse.Update dep in dependencies)
                         {
                             Console.ForegroundColor = ConsoleColor.White;
-                            Console.WriteLine(dep.Update.FileName);
+                            Console.WriteLine(dep.FileName);
                             Console.ResetColor();
-                            Console.WriteLine(dep.Url);
+                            if (urlByUpdateId.TryGetValue(dep.UpdateID, out string? dependencyUrl))
+                                Console.WriteLine(dependencyUrl);
+                            else
+                                Console.WriteLine($"// missing dependency {dep.UpdateID}");
                         }
                         Console.WriteLine();
                         Console.ResetColor();

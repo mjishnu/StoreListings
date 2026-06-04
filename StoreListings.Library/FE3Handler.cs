@@ -9,16 +9,28 @@ public static partial class FE3Handler
 {
     public class Cookie
     {
-        public required string CookieData { get; set; }
+        public required string CookieData
+        {
+            get; set;
+        }
 
-        public required string Expiration { get; set; }
+        public required string Expiration
+        {
+            get; set;
+        }
     }
 
     private class InternalSyncUpdatesResponse
     {
-        public required Dictionary<string, string> NewUpdatesInfo { get; set; }
+        public required Dictionary<string, string> NewUpdatesInfo
+        {
+            get; set;
+        }
 
-        public required Dictionary<string, string> ExtendedUpdatesInfo { get; set; }
+        public required Dictionary<string, string> ExtendedUpdatesInfo
+        {
+            get; set;
+        }
     }
 
     public class SyncUpdatesResponse
@@ -27,32 +39,179 @@ public static partial class FE3Handler
         {
             public class Platform
             {
-                public required Version MinVersion { get; set; }
+                public required Version MinVersion
+                {
+                    get; set;
+                }
 
-                public required DeviceFamily Family { get; set; }
+                public required DeviceFamily Family
+                {
+                    get; set;
+                }
             }
 
-            public required string FileName { get; set; }
+            public required string FileName
+            {
+                get; set;
+            }
 
-            public required string UpdateID { get; set; }
+            public required string UpdateID
+            {
+                get; set;
+            }
 
-            public required string RevisionNumber { get; set; }
+            public required string RevisionNumber
+            {
+                get; set;
+            }
 
-            public required string Digest { get; set; }
+            public required string Digest
+            {
+                get; set;
+            }
 
-            public required string PackageIdentityName { get; set; }
+            public required string PackageIdentityName
+            {
+                get; set;
+            }
 
-            public required Version Version { get; set; }
+            public required Version Version
+            {
+                get; set;
+            }
 
-            public required bool IsFramework { get; set; }
+            public required bool IsFramework
+            {
+                get; set;
+            }
 
-            public required IEnumerable<Platform> TargetPlatforms { get; set; }
+            public required IEnumerable<Platform> TargetPlatforms
+            {
+                get; set;
+            }
         }
 
-        public required IEnumerable<Update> Updates { get; set; }
+        public class Bundle
+        {
+            /// <summary>
+            /// The GUID (UpdateID) of this bundle update.
+            /// </summary>
+            public required string UpdateID
+            {
+                get; set;
+            }
 
-        public required Cookie NewCookie { get; set; }
+            /// <summary>
+            /// GUIDs listed under BundledUpdates/AtLeastOne — the bundle's own
+            /// per-architecture child packages (the OS installs one of them).
+            /// </summary>
+            public required List<string> PackageIds
+            {
+                get; set;
+            }
+
+            /// <summary>
+            /// GUIDs that are direct children of BundledUpdates (outside AtLeastOne) —
+            /// the mandatory framework dependency bundles for this binary version.
+            /// </summary>
+            public required List<string> DependencyIds
+            {
+                get; set;
+            }
+        }
+
+        public required IEnumerable<Update> Updates
+        {
+            get; set;
+        }
+
+        public required IEnumerable<Bundle> Bundles
+        {
+            get; set;
+        }
+
+        public required Cookie NewCookie
+        {
+            get; set;
+        }
+
+        private Dictionary<string, Update>? _leafByUpdateId;
+        private Dictionary<string, Bundle>? _bundleByUpdateId;
+
+        /// <summary>
+        /// Resolves the exact framework dependencies Microsoft bundled with this specific
+        /// binary by walking the FE3 bundle tree (BundledUpdates).
+        /// </summary>
+        public IReadOnlyList<Update> ResolveDependencies(Update mainPackage)
+        {
+            _leafByUpdateId ??= IndexByUpdateId(Updates, u => u.UpdateID);
+            _bundleByUpdateId ??= IndexByUpdateId(Bundles, b => b.UpdateID);
+
+            // The version bundle is the one whose AtLeastOne lists this app package.
+            Bundle? versionBundle = Bundles.FirstOrDefault(b =>
+                b.PackageIds.Contains(mainPackage.UpdateID, StringComparer.OrdinalIgnoreCase)
+            );
+            if (versionBundle is null)
+                return [];
+
+            List<Update> result = new();
+            HashSet<string> visitedBundles = new(StringComparer.OrdinalIgnoreCase);
+            HashSet<string> addedLeaves = new(StringComparer.OrdinalIgnoreCase);
+            Queue<string> pending = new(versionBundle.DependencyIds);
+
+            while (pending.Count > 0)
+            {
+                string depId = pending.Dequeue();
+                if (_bundleByUpdateId.TryGetValue(depId, out Bundle? depBundle))
+                {
+                    if (!visitedBundles.Add(depId))
+                        continue;
+                    // A framework dependency points at a (neutral) bundle whose
+                    // AtLeastOne lists that framework's per-architecture leaves.
+                    foreach (string leafId in depBundle.PackageIds)
+                    {
+                        if (
+                            _leafByUpdateId.TryGetValue(leafId, out Update? leaf)
+                            && addedLeaves.Add(leaf.UpdateID)
+                        )
+                            result.Add(leaf);
+                    }
+                    // Defensive: follow any transitive dependency bundles.
+                    foreach (string nested in depBundle.DependencyIds)
+                        pending.Enqueue(nested);
+                }
+                else if (
+                    _leafByUpdateId.TryGetValue(depId, out Update? directLeaf)
+                    && addedLeaves.Add(directLeaf.UpdateID)
+                )
+                {
+                    // A dependency that points straight at a leaf package.
+                    result.Add(directLeaf);
+                }
+            }
+
+            return result;
+        }
+
+        private static Dictionary<string, T> IndexByUpdateId<T>(
+            IEnumerable<T> items,
+            Func<T, string> updateIdSelector
+        )
+        {
+            Dictionary<string, T> map = new(StringComparer.OrdinalIgnoreCase);
+            foreach (T item in items)
+                map.TryAdd(updateIdSelector(item), item);
+            return map;
+        }
     }
+
+    private const string WuNamespace =
+        "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService";
+    private const string SoapNamespace = "http://www.w3.org/2003/05/soap-envelope";
+
+    private static XName Wu(string name) => XName.Get(name, WuNamespace);
+
+    private static XName Soap(string name) => XName.Get(name, SoapNamespace);
 
     public static DeviceFamily ConvertFE3PlatformToDeviceFamily(long platform) =>
         platform switch
@@ -116,34 +275,12 @@ public static partial class FE3Handler
                 LoadOptions.None,
                 cancellationToken
             );
-            XElement body = doc.Element(
-                XName.Get("Body", "http://www.w3.org/2003/05/soap-envelope")
-            )!;
-            XElement getCookieResponse = body.Element(
-                XName.Get(
-                    "GetCookieResponse",
-                    "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                )
-            )!;
-            XElement getCookieResult = getCookieResponse.Element(
-                XName.Get(
-                    "GetCookieResult",
-                    "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                )
-            )!;
+            XElement body = doc.Element(Soap("Body"))!;
+            XElement getCookieResponse = body.Element(Wu("GetCookieResponse"))!;
+            XElement getCookieResult = getCookieResponse.Element(Wu("GetCookieResult"))!;
 
-            XElement cookieData = getCookieResult.Element(
-                XName.Get(
-                    "EncryptedData",
-                    "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                )
-            )!;
-            XElement expiration = getCookieResult.Element(
-                XName.Get(
-                    "Expiration",
-                    "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                )
-            )!;
+            XElement cookieData = getCookieResult.Element(Wu("EncryptedData"))!;
+            XElement expiration = getCookieResult.Element(Wu("Expiration"))!;
 
             return Result<Cookie>.Success(
                 new Cookie { CookieData = cookieData.Value, Expiration = expiration.Value }
@@ -207,137 +344,45 @@ public static partial class FE3Handler
                     cancellationToken
                 );
 
-                XElement result = doc.Element(
-                            XName.Get("Body", "http://www.w3.org/2003/05/soap-envelope")
-                        )!
-                    .Element(
-                        XName.Get(
-                            "SyncUpdatesResponse",
-                            "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                        )
-                    )!
-                    .Element(
-                        XName.Get(
-                            "SyncUpdatesResult",
-                            "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                        )
-                    )!;
+                XElement result = doc.Element(Soap("Body"))!
+                    .Element(Wu("SyncUpdatesResponse"))!
+                    .Element(Wu("SyncUpdatesResult"))!;
 
-                XElement newCookieXml = result.Element(
-                    XName.Get(
-                        "NewCookie",
-                        "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                    )
-                )!;
+                XElement newCookieXml = result.Element(Wu("NewCookie"))!;
 
                 currentCookie = new Cookie()
                 {
-                    CookieData = newCookieXml
-                        .Element(
-                            XName.Get(
-                                "EncryptedData",
-                                "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                            )
-                        )!
-                        .Value,
-                    Expiration = newCookieXml
-                        .Element(
-                            XName.Get(
-                                "Expiration",
-                                "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                            )
-                        )!
-                        .Value,
+                    CookieData = newCookieXml.Element(Wu("EncryptedData"))!.Value,
+                    Expiration = newCookieXml.Element(Wu("Expiration"))!.Value,
                 };
 
-                XElement? extendedUpdatesInfo = result.Element(
-                    XName.Get(
-                        "ExtendedUpdateInfo",
-                        "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                    )
-                );
+                XElement? extendedUpdatesInfo = result.Element(Wu("ExtendedUpdateInfo"));
 
                 int extendedUpdatesNum;
 
                 if (
                     extendedUpdatesInfo is not null
-                    && extendedUpdatesInfo
-                        .Element(
-                            XName.Get(
-                                "Updates",
-                                "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                            )
-                        )!
-                        .Elements(
-                            XName.Get(
-                                "Update",
-                                "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                            )
-                        )
+                    && extendedUpdatesInfo.Element(Wu("Updates"))!.Elements(Wu("Update"))
                         is { } updates
                     && (extendedUpdatesNum = updates.Count()) > 0
                 )
                 {
                     IEnumerable<XElement> newUpdates = result
-                        .Element(
-                            XName.Get(
-                                "NewUpdates",
-                                "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                            )
-                        )!
-                        .Elements(
-                            XName.Get(
-                                "UpdateInfo",
-                                "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                            )
-                        );
+                        .Element(Wu("NewUpdates"))!
+                        .Elements(Wu("UpdateInfo"));
                     Dictionary<string, string> NewUpdateInfo = new(newUpdates.Count());
                     Dictionary<string, string> ExtendedUpdatesInfo = new(extendedUpdatesNum);
                     foreach (XElement update in updates)
                     {
-                        string id = update
-                            .Element(
-                                XName.Get(
-                                    "ID",
-                                    "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                                )
-                            )!
-                            .Value;
+                        string id = update.Element(Wu("ID"))!.Value;
                         FoundUpdateIDs.Add(id);
-                        ExtendedUpdatesInfo.Add(
-                            id,
-                            update
-                                .Element(
-                                    XName.Get(
-                                        "Xml",
-                                        "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                                    )
-                                )!
-                                .Value
-                        );
+                        ExtendedUpdatesInfo.Add(id, update.Element(Wu("Xml"))!.Value);
                     }
 
                     foreach (XElement newUpdate in newUpdates)
                     {
-                        string id = newUpdate
-                            .Element(
-                                XName.Get(
-                                    "ID",
-                                    "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                                )
-                            )!
-                            .Value;
-                        NewUpdateInfo.Add(
-                            id,
-                            newUpdate
-                                .Element(
-                                    XName.Get(
-                                        "Xml",
-                                        "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                                    )
-                                )!
-                                .Value
-                        );
+                        string id = newUpdate.Element(Wu("ID"))!.Value;
+                        NewUpdateInfo.Add(id, newUpdate.Element(Wu("Xml"))!.Value);
                     }
 
                     responses.Add(
@@ -355,21 +400,27 @@ public static partial class FE3Handler
             }
 
             List<SyncUpdatesResponse.Update> updateResponses = new();
+            List<SyncUpdatesResponse.Bundle> bundleResponses = new();
 
             foreach (InternalSyncUpdatesResponse response in responses)
             {
-                foreach (
-                    KeyValuePair<string, string> extendedUpdateInfo in response.ExtendedUpdatesInfo
-                )
+                foreach ((string id, string coreFragment) in response.NewUpdatesInfo)
                 {
-                    string newUpdateInfo = response.NewUpdatesInfo[extendedUpdateInfo.Key];
+                    // Bundle parent: holds the dependency tree in <BundledUpdates>, no payload.
+                    if (TryParseBundle(coreFragment) is { } bundle)
+                    {
+                        bundleResponses.Add(bundle);
+                        continue;
+                    }
+
+                    // Leaf package: needs the extended fragment's <Files> and a SecuredFragment URL.
                     if (
-                        !extendedUpdateInfo.Value.Contains("<Files")
-                        || !newUpdateInfo.Contains("SecuredFragment")
+                        !response.ExtendedUpdatesInfo.TryGetValue(id, out string? extendedFragment)
+                        || !extendedFragment.Contains("<Files")
+                        || !coreFragment.Contains("SecuredFragment")
                     )
                         continue;
-                    string appendedUpdateInfoXml =
-                        $"<Xml>{extendedUpdateInfo.Value}{newUpdateInfo}</Xml>";
+                    string appendedUpdateInfoXml = $"<Xml>{extendedFragment}{coreFragment}</Xml>";
                     doc = XElement.Parse(appendedUpdateInfoXml);
 
                     XElement updateIdentity = doc.Element("UpdateIdentity")!;
@@ -468,13 +519,46 @@ public static partial class FE3Handler
                 }
             }
             return Result<SyncUpdatesResponse>.Success(
-                new SyncUpdatesResponse() { NewCookie = currentCookie, Updates = updateResponses }
+                new SyncUpdatesResponse()
+                {
+                    NewCookie = currentCookie,
+                    Updates = updateResponses,
+                    Bundles = bundleResponses,
+                }
             );
         }
         catch (Exception ex)
         {
             return Result<SyncUpdatesResponse>.Failure(ex);
         }
+    }
+
+    /// <summary>
+    /// Parses a bundle parent's Core/published fragment into its BundledUpdates relationship,
+    /// or returns null for leaf packages.
+    /// </summary>
+    private static SyncUpdatesResponse.Bundle? TryParseBundle(string coreFragment)
+    {
+        if (!coreFragment.Contains("<BundledUpdates"))
+            return null;
+
+        XElement doc = XElement.Parse($"<Xml>{coreFragment}</Xml>");
+        XElement? updateIdentity = doc.Element("UpdateIdentity");
+        XElement? bundledUpdates = doc.Element("Relationships")?.Element("BundledUpdates");
+        if (updateIdentity is null || bundledUpdates is null)
+            return null;
+
+        static List<string> UpdateIds(IEnumerable<XElement> elements) =>
+            elements.Select(e => e.Attribute("UpdateID")!.Value).ToList();
+
+        return new SyncUpdatesResponse.Bundle
+        {
+            UpdateID = updateIdentity.Attribute("UpdateID")!.Value,
+            // AtLeastOne children = this bundle's own per-architecture packages.
+            PackageIds = UpdateIds(bundledUpdates.Elements("AtLeastOne").Elements("UpdateIdentity")),
+            // Direct UpdateIdentity children (outside AtLeastOne) = dependency bundles.
+            DependencyIds = UpdateIds(bundledUpdates.Elements("UpdateIdentity")),
+        };
     }
 
     private static string GenerateSyncUpdatesPayload(
@@ -735,34 +819,16 @@ public static partial class FE3Handler
                 LoadOptions.None,
                 cancellationToken
             );
-            XElement body = doc.Element(
-                XName.Get("Body", "http://www.w3.org/2003/05/soap-envelope")
-            )!;
+            XElement body = doc.Element(Soap("Body"))!;
 
             XElement getExtendedUpdateInfo2Response = body.Element(
-                XName.Get(
-                    "GetExtendedUpdateInfo2Response",
-                    "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                )
+                Wu("GetExtendedUpdateInfo2Response")
             )!;
             XElement getExtendedUpdateInfo2Result = getExtendedUpdateInfo2Response.Element(
-                XName.Get(
-                    "GetExtendedUpdateInfo2Result",
-                    "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                )
+                Wu("GetExtendedUpdateInfo2Result")
             )!;
-            XElement fileLocations = getExtendedUpdateInfo2Result.Element(
-                XName.Get(
-                    "FileLocations",
-                    "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                )
-            )!;
-            IEnumerable<XElement> listOfLocations = fileLocations.Elements(
-                XName.Get(
-                    "FileLocation",
-                    "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                )
-            )!;
+            XElement fileLocations = getExtendedUpdateInfo2Result.Element(Wu("FileLocations"))!;
+            IEnumerable<XElement> listOfLocations = fileLocations.Elements(Wu("FileLocation"));
 
             string? packageUrl = null;
             string? blockmapUrl = null;
@@ -770,22 +836,8 @@ public static partial class FE3Handler
 
             foreach (XElement fileLocation in listOfLocations)
             {
-                string fileDigest = fileLocation
-                    .Element(
-                        XName.Get(
-                            "FileDigest",
-                            "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                        )
-                    )!
-                    .Value;
-                string fileUrl = fileLocation
-                    .Element(
-                        XName.Get(
-                            "Url",
-                            "http://www.microsoft.com/SoftwareDistribution/Server/ClientWebService"
-                        )
-                    )!
-                    .Value;
+                string fileDigest = fileLocation.Element(Wu("FileDigest"))!.Value;
+                string fileUrl = fileLocation.Element(Wu("Url"))!.Value;
 
                 if (fileDigest == packageDigest)
                     packageUrl = fileUrl;
