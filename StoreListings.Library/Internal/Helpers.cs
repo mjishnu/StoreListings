@@ -152,18 +152,6 @@ internal static class Helpers
         return _storeHttpClient;
     }
 
-    internal static void UpdateAcceptLanguage(string locale)
-    {
-        var client = _storeHttpClient;
-        if (client == null)
-            return;
-        client.DefaultRequestHeaders.AcceptLanguage.Clear();
-        if (!string.IsNullOrEmpty(locale))
-            client.DefaultRequestHeaders.AcceptLanguage.Add(
-                new StringWithQualityHeaderValue(locale)
-            );
-    }
-
     public static HttpClient GetFE3StoreHttpClient()
     {
         if (_fe3HttpClient is not null)
