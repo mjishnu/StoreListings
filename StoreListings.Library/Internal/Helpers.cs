@@ -1,4 +1,6 @@
-﻿using System.Net.Http.Headers;
+﻿using System.Buffers.Binary;
+using System.Net;
+using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -120,9 +122,12 @@ public static class JsonExtensions
 
 internal static class Helpers
 {
-    private static HttpClientHandler? _handler;
     private static HttpClient? _storeHttpClient;
     private static HttpClient? _fe3HttpClient;
+
+    // Store REST API compresses JSON with gzip/br; FE3 only supports xpress
+    private const DecompressionMethods AllDecompression =
+        DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli;
 
     public static HttpClient GetStoreHttpClient()
     {
@@ -131,14 +136,20 @@ internal static class Helpers
 
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            _handler = new HttpClientHandler();
-            _handler.ServerCertificateCustomValidationCallback =
-                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-            _storeHttpClient = new HttpClient(_handler);
+            _storeHttpClient = new HttpClient(
+                new HttpClientHandler
+                {
+                    AutomaticDecompression = AllDecompression,
+                    ServerCertificateCustomValidationCallback =
+                        HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+                }
+            );
         }
         else
         {
-            _storeHttpClient = new HttpClient();
+            _storeHttpClient = new HttpClient(
+                new SocketsHttpHandler { AutomaticDecompression = AllDecompression }
+            );
         }
 
         _storeHttpClient.DefaultRequestHeaders.Accept.Clear();
@@ -159,14 +170,20 @@ internal static class Helpers
 
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            _handler = new HttpClientHandler();
-            _handler.ServerCertificateCustomValidationCallback =
-                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-            _fe3HttpClient = new HttpClient(_handler);
+            // Non-Windows: no xpress API available; server returns uncompressed without the header
+            _fe3HttpClient = new HttpClient(
+                new HttpClientHandler
+                {
+                    ServerCertificateCustomValidationCallback =
+                        HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+                }
+            );
         }
         else
         {
-            _fe3HttpClient = new HttpClient();
+            _fe3HttpClient = new HttpClient(
+                new XpressDecompressionHandler(new SocketsHttpHandler())
+            );
         }
 
         _fe3HttpClient.DefaultRequestHeaders.Add(
@@ -215,8 +232,7 @@ internal static class Helpers
 
                 // Try to find the last 300x300 image, fallback to the first image available
                 var targetImage = images
-                    .Where(img => img.GetIntSafe("Height") == 300 && img.GetIntSafe("Width") == 300)
-                    .LastOrDefault();
+                    .LastOrDefault(img => img.GetIntSafe("Height") == 300 && img.GetIntSafe("Width") == 300);
 
                 // If LastOrDefault returns default (Undefined), fallback to the first image
                 if (targetImage.ValueKind == JsonValueKind.Undefined)
@@ -302,4 +318,96 @@ internal static class Helpers
 
         return (shortDesc, fullDesc);
     }
+
+    // Windows-only; the non-Windows path skips this handler and gets uncompressed responses.
+    internal sealed class XpressDecompressionHandler(HttpMessageHandler inner)
+        : DelegatingHandler(inner)
+    {
+        private const ushort CompressionFormatXpress = 0x0003;
+
+        [DllImport("ntdll.dll")]
+        private static extern uint RtlDecompressBuffer(
+            ushort compressionFormat,
+            ref byte uncompressedBuffer,
+            uint uncompressedBufferSize,
+            ref byte compressedBuffer,
+            uint compressedBufferSize,
+            out uint finalUncompressedSize
+        );
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken ct
+        )
+        {
+            request.Headers.TryAddWithoutValidation("Accept-Encoding", "xpress");
+            var response = await base.SendAsync(request, ct);
+
+            if (response.Content.Headers.ContentEncoding.Contains("xpress"))
+            {
+                var body = await response.Content.ReadAsByteArrayAsync(ct);
+                var decompressed = new ByteArrayContent(Decompress(body));
+                decompressed.Headers.ContentType = response.Content.Headers.ContentType;
+                response.Content = decompressed;
+            }
+            return response;
+        }
+
+        private static byte[] Decompress(ReadOnlySpan<byte> compressed)
+        {
+            var output = new byte[GetDecompressedLength(compressed)];
+            var written = 0;
+            var offset = 0;
+
+            while (offset < compressed.Length)
+            {
+                var uncompressedSize = BinaryPrimitives.ReadUInt32LittleEndian(
+                    compressed[offset..]
+                );
+                var compressedSize = BinaryPrimitives.ReadUInt32LittleEndian(
+                    compressed[(offset + 4)..]
+                );
+                offset += 8;
+
+                var status = RtlDecompressBuffer(
+                    CompressionFormatXpress,
+                    ref MemoryMarshal.GetReference(output.AsSpan(written)),
+                    uncompressedSize,
+                    ref MemoryMarshal.GetReference(compressed[offset..]),
+                    compressedSize,
+                    out var finalSize
+                );
+                if (status != 0)
+                {
+                    throw new InvalidDataException(
+                        $"RtlDecompressBuffer failed: NTSTATUS 0x{status:X8}"
+                    );
+                }
+
+                written += (int)finalSize;
+                offset += (int)compressedSize;
+            }
+
+            return written == output.Length ? output : output[..written];
+        }
+
+        // Sums the block headers so the output is a single exact-size allocation,
+        // validating the stream layout in the process.
+        private static int GetDecompressedLength(ReadOnlySpan<byte> compressed)
+        {
+            long length = 0;
+            long offset = 0;
+            while (offset + 8 <= compressed.Length)
+            {
+                length += BinaryPrimitives.ReadUInt32LittleEndian(compressed[(int)offset..]);
+                offset += 8 + BinaryPrimitives.ReadUInt32LittleEndian(compressed[(int)(offset + 4)..]);
+            }
+            if (offset != compressed.Length)
+            {
+                throw new InvalidDataException("Malformed xpress stream.");
+            }
+            return checked((int)length);
+        }
+    }
+
 }
