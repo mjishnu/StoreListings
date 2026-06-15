@@ -369,22 +369,34 @@ internal static class Helpers
                 );
                 offset += 8;
 
-                var status = RtlDecompressBuffer(
-                    CompressionFormatXpress,
-                    ref MemoryMarshal.GetReference(output.AsSpan(written)),
-                    uncompressedSize,
-                    ref MemoryMarshal.GetReference(compressed[offset..]),
-                    compressedSize,
-                    out var finalSize
-                );
-                if (status != 0)
+                var block = compressed.Slice(offset, (int)compressedSize);
+
+                if (compressedSize == uncompressedSize)
                 {
-                    throw new InvalidDataException(
-                        $"RtlDecompressBuffer failed: NTSTATUS 0x{status:X8}"
+                    // Incompressible block: copy these bytes straight through.
+                    block.CopyTo(output.AsSpan(written));
+                    written += (int)compressedSize;
+                }
+                else
+                {
+                    var status = RtlDecompressBuffer(
+                        CompressionFormatXpress,
+                        ref MemoryMarshal.GetReference(output.AsSpan(written)),
+                        uncompressedSize,
+                        ref MemoryMarshal.GetReference(block),
+                        compressedSize,
+                        out var finalSize
                     );
+                    if (status != 0)
+                    {
+                        throw new InvalidDataException(
+                            $"RtlDecompressBuffer failed: NTSTATUS 0x{status:X8}"
+                        );
+                    }
+
+                    written += (int)finalSize;
                 }
 
-                written += (int)finalSize;
                 offset += (int)compressedSize;
             }
 
