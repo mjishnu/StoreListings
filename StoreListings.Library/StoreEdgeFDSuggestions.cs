@@ -6,8 +6,14 @@ namespace StoreListings.Library;
 
 public class StoreEdgeFDSuggestions
 {
-    public List<string> Suggestions { get; set; }
-    public required List<Card> Cards { get; set; }
+    public List<string> Suggestions
+    {
+        get; set;
+    }
+    public required List<Card> Cards
+    {
+        get; set;
+    }
 
     [SetsRequiredMembers]
     private StoreEdgeFDSuggestions(List<Card> cards, List<string> suggestions)
@@ -58,10 +64,6 @@ public class StoreEdgeFDSuggestions
             return Result<StoreEdgeFDSuggestions>.Success(new(cards, suggestions));
         }
         catch (Exception ex)
-            when (ex is OperationCanceledException
-                || ex is HttpRequestException
-                || ex is JsonException
-            )
         {
             return Result<StoreEdgeFDSuggestions>.Failure(ex);
         }
