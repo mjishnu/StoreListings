@@ -1,5 +1,4 @@
-﻿using System.Net;
-using System.Net.Http;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -122,111 +121,61 @@ public static class JsonExtensions
 
 internal static class Helpers
 {
-    private static HttpClientHandler? _handler;
-    private static HttpClient? _storeHttpClient;
-    private static HttpClient? _fe3HttpClient;
-    private static IWebProxy? _proxy;
-    private static IWebProxy? _lastStoreProxy;
-    private static IWebProxy? _lastFe3Proxy;
+    private static readonly DynamicWebProxy _dynamicProxy = new();
+    private static readonly HttpClient _storeHttpClient = CreateStoreHttpClient();
+    private static readonly HttpClient _fe3HttpClient = CreateFE3HttpClient();
 
-    /// <summary>
-    /// Routes the shared Store and FE3 clients through <paramref name="proxy"/>
-    /// (null = direct connection). Called by ProxyManager when the user switches proxies.
-    /// </summary>
-    public static void ApplyProxy(IWebProxy? proxy)
+    public static IWebProxy? Proxy
     {
-        _proxy = proxy;
-        ApplyProxy(proxy, _storeHttpClient);
-        ApplyProxy(proxy, _fe3HttpClient);
+        get => _dynamicProxy.InnerProxy;
+        set => _dynamicProxy.InnerProxy = value;
     }
 
-    private static void ApplyProxy(IWebProxy? proxy, HttpClient? client)
-    {
-        // HttpClient exposes no public way to swap its handler, so runtime proxy
-        // switching is done by rebuilding the client via the same factory methods.
-        if (client == _storeHttpClient && proxy != _lastStoreProxy)
-        {
-            _storeHttpClient = null;
-            _lastStoreProxy = proxy;
-        }
-        else if (client == _fe3HttpClient && proxy != _lastFe3Proxy)
-        {
-            _fe3HttpClient = null;
-            _lastFe3Proxy = proxy;
-        }
-    }
+    public static HttpClient GetStoreHttpClient() => _storeHttpClient;
 
-    public static HttpClient GetStoreHttpClient()
+    public static HttpClient GetFE3StoreHttpClient() => _fe3HttpClient;
+
+    private static SocketsHttpHandler CreateHandler()
     {
-        if (_storeHttpClient is not null)
+        var handler = new SocketsHttpHandler
         {
-            // Keep an already-built client in sync when the user switches proxies at runtime.
-            ApplyProxy(_proxy, _storeHttpClient);
-            return _storeHttpClient;
-        }
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+            UseProxy = true,
+            Proxy = _dynamicProxy,
+        };
 
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            _handler = new HttpClientHandler();
-            _handler.ServerCertificateCustomValidationCallback =
-                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-            _handler.UseProxy = _proxy is not null;
-            _handler.Proxy = _proxy;
-            _storeHttpClient = new HttpClient(_handler);
-        }
-        else
-        {
-            var handler = new SocketsHttpHandler
-            {
-                PooledConnectionLifetime = TimeSpan.FromMinutes(5),
-                UseProxy = _proxy is not null,
-                Proxy = _proxy,
-            };
-            _storeHttpClient = new HttpClient(handler);
+            handler.SslOptions.RemoteCertificateValidationCallback =
+                (sender, certificate, chain, sslPolicyErrors) => true;
         }
 
-        _storeHttpClient.DefaultRequestHeaders.Accept.Clear();
-        _storeHttpClient.DefaultRequestHeaders.Accept.Add(
+        return handler;
+    }
+
+    private static HttpClient CreateStoreHttpClient()
+    {
+        var client = new HttpClient(CreateHandler());
+        client.DefaultRequestHeaders.Accept.Clear();
+        client.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("*/*")
         );
-        _storeHttpClient.DefaultRequestHeaders.Add("User-Agent", "WindowsStore/22512.1401.1101.0");
-        _storeHttpClient.DefaultRequestHeaders.Add("MS-CV", CorrelationVector.Increment());
-        _storeHttpClient.DefaultRequestHeaders.Add("OSIsGenuine", "True");
-        _storeHttpClient.DefaultRequestHeaders.Add("OSIsSMode", "False");
-        return _storeHttpClient;
+        client.DefaultRequestHeaders.Add("User-Agent", "WindowsStore/22512.1401.1101.0");
+        client.DefaultRequestHeaders.Add("MS-CV", CorrelationVector.Increment());
+        client.DefaultRequestHeaders.Add("OSIsGenuine", "True");
+        client.DefaultRequestHeaders.Add("OSIsSMode", "False");
+        return client;
     }
 
-    public static HttpClient GetFE3StoreHttpClient()
+    private static HttpClient CreateFE3HttpClient()
     {
-        if (_fe3HttpClient is not null)
-            return _fe3HttpClient;
-
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            _handler = new HttpClientHandler();
-            _handler.ServerCertificateCustomValidationCallback =
-                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-            _handler.UseProxy = _proxy is not null;
-            _handler.Proxy = _proxy;
-            _fe3HttpClient = new HttpClient(_handler);
-        }
-        else
-        {
-            var handler = new SocketsHttpHandler
-            {
-                PooledConnectionLifetime = TimeSpan.FromMinutes(5),
-                UseProxy = _proxy is not null,
-                Proxy = _proxy,
-            };
-            _fe3HttpClient = new HttpClient(handler);
-        }
-
-        _fe3HttpClient.DefaultRequestHeaders.Add(
+        var client = new HttpClient(CreateHandler());
+        client.DefaultRequestHeaders.Add(
             "User-Agent",
             "Windows-Update-Agent/10.0.10011.16384 Client-Protocol/2.1"
         );
-        _fe3HttpClient.DefaultRequestHeaders.Connection.Add("keep-alive");
-        return _fe3HttpClient;
+        client.DefaultRequestHeaders.Connection.Add("keep-alive");
+        return client;
     }
 
     public static string ToBase64Url(string input)
