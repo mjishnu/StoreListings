@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Headers;
+using System.Net;
+using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -120,61 +121,61 @@ public static class JsonExtensions
 
 internal static class Helpers
 {
-    private static HttpClientHandler? _handler;
-    private static HttpClient? _storeHttpClient;
-    private static HttpClient? _fe3HttpClient;
+    private static readonly DynamicWebProxy _dynamicProxy = new();
+    private static readonly HttpClient _storeHttpClient = CreateStoreHttpClient();
+    private static readonly HttpClient _fe3HttpClient = CreateFE3HttpClient();
 
-    public static HttpClient GetStoreHttpClient()
+    public static IWebProxy? Proxy
     {
-        if (_storeHttpClient is not null)
-            return _storeHttpClient;
-
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            _handler = new HttpClientHandler();
-            _handler.ServerCertificateCustomValidationCallback =
-                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-            _storeHttpClient = new HttpClient(_handler);
-        }
-        else
-        {
-            _storeHttpClient = new HttpClient();
-        }
-
-        _storeHttpClient.DefaultRequestHeaders.Accept.Clear();
-        _storeHttpClient.DefaultRequestHeaders.Accept.Add(
-            new MediaTypeWithQualityHeaderValue("*/*")
-        );
-        _storeHttpClient.DefaultRequestHeaders.Add("User-Agent", "WindowsStore/22512.1401.1101.0");
-        _storeHttpClient.DefaultRequestHeaders.Add("MS-CV", CorrelationVector.Increment());
-        _storeHttpClient.DefaultRequestHeaders.Add("OSIsGenuine", "True");
-        _storeHttpClient.DefaultRequestHeaders.Add("OSIsSMode", "False");
-        return _storeHttpClient;
+        get => _dynamicProxy.InnerProxy;
+        set => _dynamicProxy.InnerProxy = value;
     }
 
-    public static HttpClient GetFE3StoreHttpClient()
+    public static HttpClient GetStoreHttpClient() => _storeHttpClient;
+
+    public static HttpClient GetFE3StoreHttpClient() => _fe3HttpClient;
+
+    private static SocketsHttpHandler CreateHandler()
     {
-        if (_fe3HttpClient is not null)
-            return _fe3HttpClient;
+        var handler = new SocketsHttpHandler
+        {
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+            UseProxy = true,
+            Proxy = _dynamicProxy,
+        };
 
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            _handler = new HttpClientHandler();
-            _handler.ServerCertificateCustomValidationCallback =
-                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-            _fe3HttpClient = new HttpClient(_handler);
-        }
-        else
-        {
-            _fe3HttpClient = new HttpClient();
+            handler.SslOptions.RemoteCertificateValidationCallback =
+                (sender, certificate, chain, sslPolicyErrors) => true;
         }
 
-        _fe3HttpClient.DefaultRequestHeaders.Add(
+        return handler;
+    }
+
+    private static HttpClient CreateStoreHttpClient()
+    {
+        var client = new HttpClient(CreateHandler());
+        client.DefaultRequestHeaders.Accept.Clear();
+        client.DefaultRequestHeaders.Accept.Add(
+            new MediaTypeWithQualityHeaderValue("*/*")
+        );
+        client.DefaultRequestHeaders.Add("User-Agent", "WindowsStore/22512.1401.1101.0");
+        client.DefaultRequestHeaders.Add("MS-CV", CorrelationVector.Increment());
+        client.DefaultRequestHeaders.Add("OSIsGenuine", "True");
+        client.DefaultRequestHeaders.Add("OSIsSMode", "False");
+        return client;
+    }
+
+    private static HttpClient CreateFE3HttpClient()
+    {
+        var client = new HttpClient(CreateHandler());
+        client.DefaultRequestHeaders.Add(
             "User-Agent",
             "Windows-Update-Agent/10.0.10011.16384 Client-Protocol/2.1"
         );
-        _fe3HttpClient.DefaultRequestHeaders.Connection.Add("keep-alive");
-        return _fe3HttpClient;
+        client.DefaultRequestHeaders.Connection.Add("keep-alive");
+        return client;
     }
 
     public static string ToBase64Url(string input)
