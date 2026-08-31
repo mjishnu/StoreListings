@@ -412,13 +412,13 @@ public class StoreEdgeFDProduct
                 string InstallerSwitches,
                 string Version,
                 string InstallerSha256,
-                string architecture
+                string architecture,
+                string locale
             )>
         >
     > GetUnpackagedInstall(
         string productId,
         Market market,
-        Lang language,
         CancellationToken cancellationToken = default
     )
     {
@@ -426,30 +426,31 @@ public class StoreEdgeFDProduct
         {
             HttpClient client = Helpers.GetStoreHttpClient();
 
-            string url =
-                $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/packageManifests/{productId}";
+            string url = $"https://storeedgefd.dsx.mp.microsoft.com/v9.0/packageManifests/{productId}?market={market}";
 
             using HttpResponseMessage response = await client.GetAsync(url, cancellationToken);
             response.EnsureSuccessStatusCode();
 
             using JsonDocument json = await JsonDocument.ParseAsync(
-                await response.Content.ReadAsStreamAsync(),
+                await response.Content.ReadAsStreamAsync(cancellationToken),
                 cancellationToken: cancellationToken
             );
 
             JsonElement data = json.RootElement.GetPropertySafe("Data");
 
-            var allInstallers = new List<(string, string, string, string, string, string)>();
+            var allInstallers =
+                new List<(string, string, string, string, string, string, string)>();
 
             foreach (JsonElement versionObj in data.GetArraySafe("Versions").EnumerateArray())
             {
                 string rawVersion = versionObj.GetStringSafe("PackageVersion");
-
                 string version = ExtractNumericVersionPrefix(rawVersion);
 
-                string packageName = versionObj
-                    .GetPropertySafe("DefaultLocale")
-                    .GetStringSafe("PackageName");
+                string packageName = versionObj.GetPropertySafe("DefaultLocale").GetStringSafe("PackageName");
+                if (string.IsNullOrEmpty(packageName))
+                {
+                    packageName = "App";
+                }
 
                 foreach (
                     JsonElement installer in versionObj.GetArraySafe("Installers").EnumerateArray()
@@ -457,6 +458,7 @@ public class StoreEdgeFDProduct
                 {
                     string installerUrl = installer.GetStringSafe("InstallerUrl");
                     string installerSha256 = installer.GetStringSafe("InstallerSha256");
+                    string installerLocale = installer.GetStringSafe("InstallerLocale").ToLowerInvariant();
 
                     string installerSwitches = installer
                         .GetPropertySafe("InstallerSwitches")
@@ -471,9 +473,12 @@ public class StoreEdgeFDProduct
                     string architecture = installer.GetStringSafe("Architecture");
                     if (string.IsNullOrEmpty(architecture))
                     {
-                        architecture = "unknown";
+                        architecture = "neutral";
                     }
-                    string fileName = $"{packageName}_{architecture}.{extension}";
+
+                    string fileName = string.IsNullOrEmpty(installerLocale)
+                        ? $"{packageName}_{architecture}.{extension}"
+                        : $"{packageName}_{installerLocale}_{architecture}.{extension}";
 
                     allInstallers.Add(
                         (
@@ -482,19 +487,38 @@ public class StoreEdgeFDProduct
                             installerSwitches,
                             version,
                             installerSha256,
-                            architecture
+                            architecture,
+                            installerLocale
                         )
                     );
                 }
             }
 
-            return Result<List<(string, string, string, string, string, string)>>.Success(
-                allInstallers
-            );
+            return Result<
+                List<(
+                    string InstallerUrl,
+                    string FileName,
+                    string InstallerSwitches,
+                    string Version,
+                    string InstallerSha256,
+                    string architecture,
+                    string locale
+                )>
+            >.Success(allInstallers);
         }
         catch (Exception ex)
         {
-            return Result<List<(string, string, string, string, string, string)>>.Failure(ex);
+            return Result<
+                List<(
+                    string InstallerUrl,
+                    string FileName,
+                    string InstallerSwitches,
+                    string Version,
+                    string InstallerSha256,
+                    string architecture,
+                    string locale
+                )>
+            >.Failure(ex);
         }
     }
 

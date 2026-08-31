@@ -439,7 +439,6 @@ public class Commands
                 var unpackagedResult = await StoreEdgeFDProduct.GetUnpackagedInstall(
                     productId,
                     market,
-                    language,
                     cancellationToken
                 );
                 if (!unpackagedResult.IsSuccess)
@@ -454,7 +453,8 @@ public class Commands
                         InstallerSwitches,
                         Version,
                         InstallerSha256,
-                        arch
+                        arch,
+                        locale
                     ) in unpackagedResult.Value
                 )
                 {
@@ -475,6 +475,8 @@ public class Commands
                     Console.WriteLine("arch:");
                     Console.WriteLine(arch);
                     Console.WriteLine();
+                    Console.WriteLine("Locale:");
+                    Console.WriteLine(locale);
                 }
 
                 break;
