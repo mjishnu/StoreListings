@@ -2,7 +2,7 @@
   "profiles": {
     "StoreListings.CLI": {
       "commandName": "Project",
-      "commandLineArgs": "download XPDP273C0XHQH2"
+      "commandLineArgs": "download 9WZDNCRFJ3PT"
     }
   }
 } 

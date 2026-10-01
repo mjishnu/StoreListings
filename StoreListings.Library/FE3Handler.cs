@@ -434,6 +434,7 @@ public static partial class FE3Handler
                     bool isFramework = (bool)extendedProperties.Attribute("IsAppxFramework")!;
 
                     List<SyncUpdatesResponse.Update.Platform> platforms;
+                    Version? bundledPackageVersion = null;
 
                     using (
                         JsonDocument jsonApplicabilityDoc = JsonDocument.Parse(
@@ -446,6 +447,10 @@ public static partial class FE3Handler
                         )
                     )
                     {
+                        bundledPackageVersion = Helpers.GetBundledPackageVersion(
+                            jsonApplicabilityDoc.RootElement
+                        );
+
                         if (
                             !jsonApplicabilityDoc.RootElement.TryGetProperty(
                                 "content.targetPlatforms",
@@ -491,7 +496,9 @@ public static partial class FE3Handler
                         string originalName = file.Attribute("FileName")!.Value;
                         if (originalName.EndsWith(".cab"))
                             continue;
-                        string identifier = file.Attribute("InstallerSpecificIdentifier")!.Value;
+                        // Legacy Windows Phone .xap entries carry no package identifier; nothing to name or version.
+                        if (file.Attribute("InstallerSpecificIdentifier")?.Value is not { } identifier)
+                            continue;
                         string digest = file.Attribute("Digest")!.Value;
                         int extensionIndex = originalName.AsSpan().LastIndexOf('.');
                         string realName = $"{identifier}{originalName[extensionIndex..]}";
@@ -507,7 +514,7 @@ public static partial class FE3Handler
                                 UpdateID = updateId,
                                 Digest = digest,
                                 RevisionNumber = revisionNumber,
-                                Version = Version.Parse(
+                                Version = bundledPackageVersion ?? Version.Parse(
                                     identifier.AsSpan()[firstIndex..][..secondIndex],
                                     null
                                 ),

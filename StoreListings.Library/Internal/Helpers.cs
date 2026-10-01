@@ -135,6 +135,35 @@ internal static class Helpers
 
     public static HttpClient GetFE3StoreHttpClient() => _fe3HttpClient;
 
+    /// <summary>
+    /// Highest version among a bundle's <c>content.bundledPackages</c> in an applicability blob,
+    /// or null for non-bundles. A bundle's own version is arbitrary (Groove shipped 2019.x bundles
+    /// holding 10.x packages); Windows registers and compares the bundled packages' version.
+    /// </summary>
+    public static Version? GetBundledPackageVersion(JsonElement applicabilityBlob)
+    {
+        if (
+            applicabilityBlob.ValueKind != JsonValueKind.Object
+            || !applicabilityBlob.TryGetProperty("content.bundledPackages", out JsonElement bundled)
+            || bundled.ValueKind != JsonValueKind.Array
+        )
+            return null;
+
+        Version? best = null;
+        foreach (JsonElement package in bundled.EnumerateArray())
+        {
+            // Package full name: Name_Version_Arch_ResourceId_PublisherId
+            string[] parts = (package.GetString() ?? string.Empty).Split('_');
+            if (
+                parts.Length > 1
+                && Version.TryParse(parts[1], null, out Version v)
+                && (best is null || v > best.Value)
+            )
+                best = v;
+        }
+        return best;
+    }
+
     private static SocketsHttpHandler CreateHandler()
     {
         var handler = new SocketsHttpHandler

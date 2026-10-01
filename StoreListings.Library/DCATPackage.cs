@@ -156,13 +156,7 @@ namespace StoreListings.Library
                             // Size Logic
                             long? size = pkgJson.GetLongSafe("MaxDownloadSizeInBytes");
 
-                            // Version Logic (Using ulong parsing for WindowsRepresentation)
-                            string? versionStr = pkgJson.GetStringSafe("Version");
-                            Version? finalVersion = null;
-                            if (ulong.TryParse(versionStr, out var vLong) && vLong != 0)
-                            {
-                                finalVersion = Version.FromWindowsRepresentation(vLong);
-                            }
+                            Version? finalVersion = ParsePackageVersion(pkgJson);
 
                             // Create specific package instance
                             var pkg = new DCATPackage
@@ -340,13 +334,7 @@ namespace StoreListings.Library
                                 // Size Logic
                                 long? size = pkgJson.GetLongSafe("MaxDownloadSizeInBytes");
 
-                                // Version Logic (Using ulong parsing for WindowsRepresentation)
-                                string? versionStr = pkgJson.GetStringSafe("Version");
-                                Version? finalVersion = null;
-                                if (ulong.TryParse(versionStr, out var vLong) && vLong != 0)
-                                {
-                                    finalVersion = Version.FromWindowsRepresentation(vLong);
-                                }
+                                Version? finalVersion = ParsePackageVersion(pkgJson);
 
                                 // Create specific package instance
                                 var pkg = new DCATPackage
@@ -506,6 +494,29 @@ namespace StoreListings.Library
                 count = rootProps.GetLongSafe("RatingCount");
 
             return (rating, count);
+        }
+
+        /// <summary>
+        /// Version Windows will register for this package: the bundled packages' version for a
+        /// bundle (its own version is arbitrary), else the package's WindowsRepresentation version.
+        /// </summary>
+        private static Version? ParsePackageVersion(JsonElement packageJson)
+        {
+            string blob = packageJson.GetStringSafe("PlatformDependencyXmlBlob");
+            if (blob.Length > 0)
+            {
+                try
+                {
+                    using JsonDocument blobDoc = JsonDocument.Parse(blob);
+                    if (Helpers.GetBundledPackageVersion(blobDoc.RootElement) is { } bundled)
+                        return bundled;
+                }
+                catch (JsonException) { }
+            }
+
+            if (ulong.TryParse(packageJson.GetStringSafe("Version"), out var vLong) && vLong != 0)
+                return Version.FromWindowsRepresentation(vLong);
+            return null;
         }
 
         private static IEnumerable<PlatformDependency>? ParsePlatforms(JsonElement packageJson)
