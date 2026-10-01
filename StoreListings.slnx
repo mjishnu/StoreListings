@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="StoreListings.CLI/StoreListings.CLI.csproj" />
+  <Project Path="StoreListings.Library/StoreListings.Library.csproj" />
+</Solution>

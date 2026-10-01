@@ -318,9 +318,19 @@ public class Commands
                     WriteError(cookieResult.Exception, "getting Windows Update cookies");
                     return;
                 }
+                string? wuCategoryId = packageResult.Value.First().WuCategoryId;
+                if (string.IsNullOrEmpty(wuCategoryId))
+                {
+                    WriteError(
+                        new InvalidOperationException("The package has no Windows Update category ID."),
+                        "querying packages"
+                    );
+                    return;
+                }
+
                 Result<FE3Handler.SyncUpdatesResponse> fe3sync = await FE3Handler.SyncUpdatesAsync(
                     cookieResult.Value,
-                    packageResult.Value.First().WuCategoryId,
+                    wuCategoryId,
                     language,
                     market,
                     currentBranch,
